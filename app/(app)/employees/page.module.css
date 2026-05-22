@@ -1,0 +1,46 @@
+.searchWrap {
+  position: relative;
+  max-width: 320px;
+  margin-bottom: 1.25rem;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.5rem 1rem 0.5rem 2.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+.searchInput::placeholder {
+  color: #9ca3af;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #102E5A;
+  box-shadow: 0 0 0 2px rgba(16, 46, 90, 0.15);
+}
+
+/* ── column widths ── */
+.colId       { width: 110px; }
+.colName     { min-width: 160px; }
+.colDept     { width: 130px; }
+.colPosition { width: 140px; }
+.colEmail    { min-width: 180px; }
+.colPhone    { width: 120px; }
+.colStatus   { width: 100px; }
+.colActions  { width: 110px; text-align: right; }

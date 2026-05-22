@@ -18,23 +18,41 @@ CREATE TABLE IF NOT EXISTS departments (
 );
 
 -- ------------------------------------------------------------
+-- positions
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS positions (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(100) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------
 -- employees
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS employees (
   id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   employee_id     VARCHAR(20) NOT NULL UNIQUE,
+  title_th        VARCHAR(20),
   first_name      VARCHAR(100) NOT NULL,
   last_name       VARCHAR(100) NOT NULL,
+  full_name       VARCHAR(200),
+  prefix          VARCHAR(10),
+  first_name_en   VARCHAR(100),
+  last_name_en    VARCHAR(100),
+  full_name_en    VARCHAR(200),
   date_of_birth   DATE,
   national_id     VARCHAR(20),
   phone           VARCHAR(20),
   email           VARCHAR(150) UNIQUE,
   department_id   INT UNSIGNED,
-  position        VARCHAR(100),
+  position_id     INT UNSIGNED,
+  sales_zone      VARCHAR(100),
+  provinces       TEXT,
   status          ENUM('Active','Inactive','Resigned') NOT NULL DEFAULT 'Active',
   created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_emp_dept FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
+  CONSTRAINT fk_emp_dept FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+  CONSTRAINT fk_emp_pos  FOREIGN KEY (position_id)   REFERENCES positions(id)   ON DELETE SET NULL
 );
 
 -- ------------------------------------------------------------
