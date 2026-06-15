@@ -1,4 +1,15 @@
 import postgres from 'postgres';
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require' });
+declare global {
+  // eslint-disable-next-line no-var
+  var _sql: ReturnType<typeof postgres> | undefined;
+}
+
+const sql = globalThis._sql ?? postgres(process.env.DATABASE_URL!, {
+  ssl: 'require',
+  max: 3,
+});
+
+if (process.env.NODE_ENV !== 'production') globalThis._sql = sql;
+
 export default sql;
