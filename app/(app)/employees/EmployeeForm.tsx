@@ -1,23 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import type { Employee, Department, Position } from "@/lib/types";
+import type { Employee, Department, Position, SalesArea } from "@/lib/types";
 import SubmitButton from "@/components/SubmitButton";
 
 interface Props {
   action: (formData: FormData) => Promise<void>;
   departments: Department[];
   positions: Position[];
+  salesAreas: SalesArea[];
   employee?: Employee;
 }
 
-const TITLE_TH_OPTIONS = ["นาย", "นาง", "นางสาว"];
+const PREFIX_TH_OPTIONS = ["นาย", "นาง", "นางสาว"];
 const PREFIX_EN_OPTIONS = ["Mr.", "Mrs.", "Miss", "Ms."];
-const STATUS_OPTIONS = [
-  { value: "Active",   label: "Active" },
-  { value: "Inactive", label: "Inactive" },
-] as const;
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -40,19 +36,7 @@ function Label({ text, required }: { text: string; required?: boolean }) {
 
 const inputCls = "input";
 
-export default function EmployeeForm({ action, departments, positions, employee }: Props) {
-  const [firstName,  setFirstName]  = useState(employee?.first_name   ?? "");
-  const [lastName,   setLastName]   = useState(employee?.last_name    ?? "");
-  const [fullNameTh, setFullNameTh] = useState(
-    employee?.full_name ?? [employee?.first_name, employee?.last_name].filter(Boolean).join(" ")
-  );
-
-  const [firstNameEn, setFirstNameEn] = useState(employee?.first_name_en ?? "");
-  const [lastNameEn,  setLastNameEn]  = useState(employee?.last_name_en  ?? "");
-  const [fullNameEn,  setFullNameEn]  = useState(
-    employee?.full_name_en ?? [employee?.first_name_en, employee?.last_name_en].filter(Boolean).join(" ")
-  );
-
+export default function EmployeeForm({ action, departments, positions, salesAreas, employee }: Props) {
   return (
     <form action={action} className="space-y-8">
 
@@ -75,33 +59,41 @@ export default function EmployeeForm({ action, departments, positions, employee 
           <div>
             <Label text="สถานะ" />
             <div className="flex gap-5 mt-3">
-              {STATUS_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="status"
-                    value={opt.value}
-                    defaultChecked={(employee?.status ?? "Active") === opt.value}
-                    className="accent-[#102E5A] w-4 h-4"
-                  />
-                  <span className="text-sm text-gray-700">{opt.label}</span>
-                </label>
-              ))}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="is_active"
+                  value="true"
+                  defaultChecked={employee?.is_active !== false}
+                  className="accent-[#102E5A] w-4 h-4"
+                />
+                <span className="text-sm text-gray-700">Active</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="is_active"
+                  value="false"
+                  defaultChecked={employee?.is_active === false}
+                  className="accent-[#102E5A] w-4 h-4"
+                />
+                <span className="text-sm text-gray-700">Inactive</span>
+              </label>
             </div>
           </div>
         </div>
 
-        {/* Row 2 — คำนำหน้า | ชื่อ | นามสกุล | ชื่อ-นามสกุล */}
+        {/* Row 2 — คำนำหน้า (TH) | ชื่อ | นามสกุล */}
         <div className="grid grid-cols-4 gap-4 mb-5">
           <div>
             <Label text="คำนำหน้าชื่อ" />
             <select
-              name="title_th"
-              defaultValue={employee?.title_th ?? ""}
+              name="prefix_th"
+              defaultValue={employee?.prefix_th ?? ""}
               className={inputCls}
             >
               <option value="">— เลือก —</option>
-              {TITLE_TH_OPTIONS.map((t) => (
+              {PREFIX_TH_OPTIONS.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
@@ -111,48 +103,30 @@ export default function EmployeeForm({ action, departments, positions, employee 
             <input
               name="first_name"
               required
-              value={firstName}
-              onChange={(e) => {
-                setFirstName(e.target.value);
-                setFullNameTh([e.target.value, lastName].filter(Boolean).join(" "));
-              }}
+              defaultValue={employee?.first_name}
               placeholder="ชื่อจริง"
               className={inputCls}
             />
           </div>
-          <div>
+          <div className="col-span-2">
             <Label text="นามสกุล" required />
             <input
               name="last_name"
               required
-              value={lastName}
-              onChange={(e) => {
-                setLastName(e.target.value);
-                setFullNameTh([firstName, e.target.value].filter(Boolean).join(" "));
-              }}
+              defaultValue={employee?.last_name}
               placeholder="นามสกุล"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <Label text="ชื่อ-นามสกุล" />
-            <input
-              name="full_name"
-              value={fullNameTh}
-              onChange={(e) => setFullNameTh(e.target.value)}
-              placeholder="auto"
               className={inputCls}
             />
           </div>
         </div>
 
-        {/* Row 3 — Prefix | First Name | Last Name | Full Name */}
+        {/* Row 3 — Prefix (EN) | First Name | Last Name */}
         <div className="grid grid-cols-4 gap-4">
           <div>
             <Label text="Prefix" />
             <select
-              name="prefix"
-              defaultValue={employee?.prefix ?? ""}
+              name="prefix_en"
+              defaultValue={employee?.prefix_en ?? ""}
               className={inputCls}
             >
               <option value="">— Select —</option>
@@ -165,35 +139,17 @@ export default function EmployeeForm({ action, departments, positions, employee 
             <Label text="First Name" />
             <input
               name="first_name_en"
-              value={firstNameEn}
-              onChange={(e) => {
-                setFirstNameEn(e.target.value);
-                setFullNameEn([e.target.value, lastNameEn].filter(Boolean).join(" "));
-              }}
+              defaultValue={employee?.first_name_en ?? ""}
               placeholder="First name"
               className={inputCls}
             />
           </div>
-          <div>
+          <div className="col-span-2">
             <Label text="Last Name" />
             <input
               name="last_name_en"
-              value={lastNameEn}
-              onChange={(e) => {
-                setLastNameEn(e.target.value);
-                setFullNameEn([firstNameEn, e.target.value].filter(Boolean).join(" "));
-              }}
+              defaultValue={employee?.last_name_en ?? ""}
               placeholder="Last name"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <Label text="Full Name" />
-            <input
-              name="full_name_en"
-              value={fullNameEn}
-              onChange={(e) => setFullNameEn(e.target.value)}
-              placeholder="auto"
               className={inputCls}
             />
           </div>
@@ -278,21 +234,16 @@ export default function EmployeeForm({ action, departments, positions, employee 
           </div>
           <div>
             <Label text="เขตการขาย" />
-            <input
-              name="sales_zone"
-              defaultValue={employee?.sales_zone ?? ""}
-              placeholder="เช่น เขตภาคเหนือ"
+            <select
+              name="sales_area_id"
+              defaultValue={employee?.sales_area_id ?? ""}
               className={inputCls}
-            />
-          </div>
-          <div>
-            <Label text="จังหวัดที่ดูแล" />
-            <input
-              name="provinces"
-              defaultValue={employee?.provinces ?? ""}
-              placeholder="เช่น เชียงใหม่, ลำพูน, ลำปาง"
-              className={inputCls}
-            />
+            >
+              <option value="">— เลือกเขต —</option>
+              {salesAreas.map((sa) => (
+                <option key={sa.id} value={sa.id}>{sa.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </section>

@@ -1,29 +1,23 @@
 import Link from "next/link";
-import pool from "@/lib/db";
+import sql from "@/lib/db";
 import type { Employee } from "@/lib/types";
 import Header from "@/components/Header";
-import DeleteButton from "./DeleteButton";
 import s from "./page.module.css";
 
 async function getEmployees(search: string): Promise<Employee[]> {
   const like = `%${search}%`;
-  const [rows] = await pool.execute(
-    `SELECT e.*, d.name AS department_name, p.position AS position_name
-     FROM employees e
-     LEFT JOIN departments d ON e.department_id = d.id
-     LEFT JOIN positions   p ON e.position_id   = p.id
-     WHERE e.first_name LIKE ? OR e.last_name LIKE ? OR e.employee_id LIKE ? OR e.email LIKE ?
-     ORDER BY e.created_at DESC`,
-    [like, like, like, like]
-  );
-  return rows as Employee[];
+  return sql<Employee[]>`
+    SELECT e.*, d.name AS department_name, p.position AS position_name,
+           sa.name AS sales_area_name
+    FROM employees e
+    LEFT JOIN departments d  ON e.department_id  = d.id
+    LEFT JOIN positions   p  ON e.position_id    = p.id
+    LEFT JOIN sales_areas sa ON e.sales_area_id  = sa.id
+    WHERE e.first_name ILIKE ${like} OR e.last_name ILIKE ${like}
+       OR e.employee_id ILIKE ${like} OR e.email ILIKE ${like}
+    ORDER BY e.created_at DESC
+  `;
 }
-
-const statusBadge: Record<string, string> = {
-  Active:   "badge badge-active",
-  Inactive: "badge badge-inactive",
-  Resigned: "badge badge-resigned",
-};
 
 export default async function EmployeesPage(props: PageProps<"/employees">) {
   const { search = "" } = await props.searchParams ?? {};
@@ -86,24 +80,21 @@ export default async function EmployeesPage(props: PageProps<"/employees">) {
                 <tr key={emp.id} className="tr-body">
                   <td className={`td font-mono text-xs ${s.colId}`}>{emp.employee_id}</td>
                   <td className={`td font-medium text-gray-900 ${s.colName}`}>
-                    {emp.full_name ?? `${emp.first_name} ${emp.last_name}`}
+                    {[emp.prefix_th, emp.first_name, emp.last_name].filter(Boolean).join(" ")}
                   </td>
                   <td className={`td ${s.colDept}`}>{emp.department_name ?? "—"}</td>
                   <td className={`td ${s.colPosition}`}>{emp.position_name ?? "—"}</td>
                   <td className={`td ${s.colEmail}`}>{emp.email ?? "—"}</td>
                   <td className={`td ${s.colPhone}`}>{emp.phone ?? "—"}</td>
                   <td className={`td ${s.colStatus}`}>
-                    <span className={statusBadge[emp.status] ?? "badge"}>
-                      {emp.status}
+                    <span className={emp.is_active ? "badge badge-active" : "badge badge-inactive"}>
+                      {emp.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className={`td ${s.colActions}`}>
-                    <div className="inline-flex items-center gap-2">
-                      <Link href={`/employees/${emp.id}/edit`} className="btn-outline">
-                        แก้ไข
-                      </Link>
-                      <DeleteButton id={emp.id} name={`${emp.first_name} ${emp.last_name}`} />
-                    </div>
+                    <Link href={`/employees/${emp.id}`} className="btn-outline">
+                      ดูข้อมูลเพิ่มเติม
+                    </Link>
                   </td>
                 </tr>
               ))

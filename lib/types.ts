@@ -1,5 +1,3 @@
-export type EmployeeStatus = "Active" | "Inactive" | "Resigned";
-
 export interface Department {
   id: number;
   name: string;
@@ -8,19 +6,24 @@ export interface Department {
 export interface Position {
   id: number;
   position: string;
+  position_en: string | null;
+}
+
+export interface SalesArea {
+  id: number;
+  name: string;
+  department: number | null;
 }
 
 export interface Employee {
   id: number;
   employee_id: string;
-  title_th: string | null;
+  prefix_th: string | null;
   first_name: string;
   last_name: string;
-  full_name: string | null;
-  prefix: string | null;
+  prefix_en: string | null;
   first_name_en: string | null;
   last_name_en: string | null;
-  full_name_en: string | null;
   date_of_birth: string | null;
   national_id: string | null;
   phone: string | null;
@@ -29,33 +32,41 @@ export interface Employee {
   department_name: string | null;
   position_id: number | null;
   position_name: string | null;
-  sales_zone: string | null;
-  provinces: string | null;
-  status: EmployeeStatus;
+  sales_area_id: number | null;
+  sales_area_name: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export type AssetStatus = "Available" | "Assigned" | "Repair" | "Retired";
-
-export interface AssetCategory {
+export interface AssetType {
   id: number;
+  code: string;
   name: string;
 }
 
 export interface Asset {
   id: number;
-  asset_tag: string;
-  category_id: number | null;
-  category_name: string | null;
+  asset_code: string | null;
+  asset_name: string;
+  asset_type_id: number | null;
+  asset_type_name: string | null;
   brand: string | null;
   model: string | null;
   serial_number: string | null;
   purchase_date: string | null;
-  start_using_date: string | null;
-  warranty_period: number | null;
-  expiration_date: string | null;
-  status: AssetStatus;
-  image_path: string | null;
-  warranty_doc_path: string | null;
+  warranty_expiry: string | null;
+  status: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssetAssignment {
+  id: number;
+  employee_id: number;
+  asset_id: number;
+  assigned_at: string | null;
+  returned_at: string | null;
+  note: string | null;
 }
