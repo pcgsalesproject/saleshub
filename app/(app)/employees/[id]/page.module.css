@@ -1,3 +1,67 @@
+/* ── Page wrapper ── */
+.pageWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Breadcrumb row ── */
+.breadcrumbRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.breadcrumbNav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.breadcrumbLink {
+  color: #6b7280;
+  text-decoration: none;
+}
+
+.breadcrumbLink:hover {
+  color: #111827;
+}
+
+.breadcrumbSep {
+  color: #9ca3af;
+}
+
+.breadcrumbCurrent {
+  font-weight: 600;
+  color: #111827;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  text-decoration: none;
+  background: #fff;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.backBtn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
 /* ── Two-column layout ── */
 .layout {
   display: flex;
@@ -28,8 +92,8 @@
 }
 
 .avatar {
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 10rem;
+  height: 10rem;
   border-radius: 50%;
   background: #102E5A;
   color: #fff;
@@ -66,22 +130,23 @@
 
 .kpiCard {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.875rem;
   background: #f9fafb;
   border: 1px solid #f3f4f6;
-  border-radius: 0.625rem;
-  padding: 0.625rem 0.875rem;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
 }
 
 .kpiIcon {
   width: 2.25rem;
   height: 2.25rem;
-  flex-shrink: 0;
   border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 0.25rem;
 }
 
 .kpiIconBlue {
@@ -102,9 +167,9 @@
 }
 
 .kpiLabel {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: #9ca3af;
-  margin-top: 0.1rem;
+  line-height: 1.4;
 }
 
 /* ── Nav ── */
@@ -134,7 +199,9 @@
 .navItemActive {
   background: #eef2fa;
   color: #102E5A;
-  font-weight: 500;
+  font-weight: 600;
+  border-left: 3px solid #102E5A;
+  padding-left: calc(1.25rem - 3px);
 }
 
 .navIcon {
@@ -166,63 +233,83 @@
   padding: 1.5rem 1.75rem;
 }
 
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
+.sectionCardTall {
+  height: 320px;
 }
 
 .sectionTitle {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #102E5A;
-  margin-bottom: 1.25rem;
-}
-
-.sectionHeader .sectionTitle {
-  margin-bottom: 0;
-}
-
-/* ── Name row (prefix + first + last) ── */
-.nameRow {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.prefixCol {
-  width: 90px;
-  flex-shrink: 0;
-}
-
-.nameCol {
-  flex: 1;
-  min-width: 0;
-}
-
-/* ── 2-column field grid ── */
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem 2rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.fieldLabel {
-  font-size: 0.75rem;
-  color: #9ca3af;
-}
-
-.fieldValue {
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.9375rem;
   font-weight: 600;
   color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.titleDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f97316;
+}
+
+/* ── Two-column card grid (ข้อมูลส่วนตัว + ข้อมูลติดต่อ) ── */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* ── Field row (label left, value right, divider) ── */
+.fieldRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.fieldRow:last-child {
+  border-bottom: none;
+}
+
+.fieldRowLabel {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.fieldRowValue {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111827;
+  text-align: right;
+}
+
+.statusValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.statusDotGreen {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.statusDotGray {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #9ca3af;
 }
 
 /* ── Asset section ── */

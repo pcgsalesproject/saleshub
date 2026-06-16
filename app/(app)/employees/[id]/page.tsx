@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import sql from "@/lib/db";
 import type { Employee } from "@/lib/types";
-import DeleteButton from "../DeleteButton";
 import s from "./page.module.css";
 
 interface AssignedAsset {
@@ -25,11 +24,13 @@ async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
 async function getEmployee(id: number): Promise<Employee | null> {
   const rows = await sql<Employee[]>`
     SELECT e.*, d.name AS department_name, p.position AS position_name,
-           sa.name AS sales_area_name
+           sa.name AS sales_area_name,
+           TRIM(CONCAT(m.prefix_th, ' ', m.first_name, ' ', m.last_name)) AS manager_name
     FROM   employees e
     LEFT JOIN departments d  ON e.department_id = d.id
     LEFT JOIN positions   p  ON e.position_id   = p.id
     LEFT JOIN sales_areas sa ON e.sales_area_id = sa.id
+    LEFT JOIN employees   m  ON e.manager_id    = m.id
     WHERE e.id = ${id}
   `;
   return rows[0] ?? null;
@@ -47,11 +48,19 @@ function formatNationalId(v?: string | null) {
   return `${d[0]}-${d.slice(1, 5)}-•••••-${d.slice(10, 12)}-${d[12]}`;
 }
 
-function Field({ label, value }: { label: string; value?: string | null }) {
+function formatDate(v?: string | Date | null) {
+  if (!v) return undefined;
+  const d = new Date(v);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+function FieldRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className={s.field}>
-      <span className={s.fieldLabel}>{label}</span>
-      <span className={s.fieldValue}>{value || "—"}</span>
+    <div className={s.fieldRow}>
+      <span className={s.fieldRowLabel}>{label}</span>
+      <span className={s.fieldRowValue}>{value || "—"}</span>
     </div>
   );
 }
@@ -66,16 +75,54 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
   if (!employee) notFound();
 
   const fullName = [employee.prefix_th, employee.first_name, employee.last_name].filter(Boolean).join(" ");
+  const fullNameEn = [employee.prefix_en, employee.first_name_en, employee.last_name_en].filter(Boolean).join(" ");
   const initials = `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
 
+  let age: number | null = null;
+  if (employee.date_of_birth) {
+    const dob = new Date(employee.date_of_birth);
+    const today = new Date();
+    age = today.getFullYear() - dob.getFullYear();
+    const beforeBirthday = today.getMonth() < dob.getMonth() ||
+      (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate());
+    if (beforeBirthday) age--;
+  }
+
   const now = new Date();
-  const start = new Date(employee.created_at);
+  const start = new Date(employee.start_date ?? employee.created_at);
   const totalMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
   const tenureYears = Math.floor(totalMonths / 12);
   const tenureMonths = totalMonths % 12;
-  const tenureText = tenureYears > 0 ? `${tenureYears} ปี ${tenureMonths} ด.` : `${tenureMonths} ด.`;
+  const tenureText = totalMonths < 1 ? "< 1 เดือน"
+    : tenureYears > 0 ? `${tenureYears} ปี ${tenureMonths} เดือน`
+    : `${tenureMonths} เดือน`;
 
   return (
+    <div className={s.pageWrap}>
+
+      {/* ── Breadcrumb ── */}
+      <div className={s.breadcrumbRow}>
+        <div className={s.breadcrumbNav}>
+          <Link href="/employees" className={s.breadcrumbLink}>Employees</Link>
+          <span className={s.breadcrumbSep}>›</span>
+          <span className={s.breadcrumbCurrent}>{fullName}</span>
+        </div>
+        <div className={s.headerActions}>
+          <Link href="/employees" className={s.backBtn}>
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+            กลับไปรายชื่อ
+          </Link>
+          <Link href={`/employees/${employee.id}/edit`} className="btn-primary">
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+            </svg>
+            แก้ไขข้อมูล
+          </Link>
+        </div>
+      </div>
+
     <div className={s.layout}>
 
       {/* ── Sidebar ── */}
@@ -92,17 +139,6 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
         {/* KPI cards */}
         <div className={s.kpiWrap}>
           <div className={s.kpiCard}>
-            <div className={`${s.kpiIcon} ${s.kpiIconBlue}`}>
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-              </svg>
-            </div>
-            <div>
-              <p className={s.kpiValue}>{assets.length}</p>
-              <p className={s.kpiLabel}>ทรัพย์สินที่ถือครอง</p>
-            </div>
-          </div>
-          <div className={s.kpiCard}>
             <div className={`${s.kpiIcon} ${s.kpiIconGreen}`}>
               <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -111,6 +147,17 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
             <div>
               <p className={s.kpiValue}>{tenureText}</p>
               <p className={s.kpiLabel}>อายุงาน</p>
+            </div>
+          </div>
+          <div className={s.kpiCard}>
+            <div className={`${s.kpiIcon} ${s.kpiIconBlue}`}>
+              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 7.409A2.25 2.25 0 012.25 5.493V5.25" />
+              </svg>
+            </div>
+            <div>
+              <p className={s.kpiValue}>{assets.length}</p>
+              <p className={s.kpiLabel}>ทรัพย์สินที่ถือครอง</p>
             </div>
           </div>
         </div>
@@ -136,55 +183,52 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
       <main className={s.main}>
 
         {/* ข้อมูลส่วนตัว */}
-        <div className={s.sectionCard}>
-          <div className={s.sectionHeader}>
-            <h2 className={s.sectionTitle}>ข้อมูลส่วนตัว</h2>
-            <div className="flex items-center gap-2">
-              <Link href={`/employees/${employee.id}/edit`} className="btn-outline">แก้ไข</Link>
-              <DeleteButton id={employee.id} name={fullName} />
+        <div className={s.twoCol}>
+          <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
+            <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลส่วนตัว</h2>
+            <FieldRow label="ชื่อ-นามสกุล" value={fullName} />
+            <FieldRow label="Name (English)" value={fullNameEn} />
+            <FieldRow label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
+            <FieldRow label="วันเกิด" value={formatDate(employee.date_of_birth)} />
+            <FieldRow label="อายุ" value={age !== null ? `${age} ปี` : undefined} />
+          </div>
+
+          {/* ข้อมูลการทำงาน */}
+          <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
+            <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลการทำงาน</h2>
+            <FieldRow label="รหัสพนักงาน" value={employee.employee_id} />
+            <div className={s.fieldRow}>
+              <span className={s.fieldRowLabel}>สถานะ</span>
+              <span className={s.statusValue}>
+                <span className={employee.is_active ? s.statusDotGreen : s.statusDotGray} />
+                {employee.is_active ? "Active" : "Inactive"}
+              </span>
             </div>
-          </div>
-          <div className={s.nameRow}>
-            <div className={s.prefixCol}><Field label="คำนำหน้า" value={employee.prefix_th} /></div>
-            <div className={s.nameCol}><Field label="ชื่อ" value={employee.first_name} /></div>
-            <div className={s.nameCol}><Field label="นามสกุล" value={employee.last_name} /></div>
-          </div>
-          <div className={s.nameRow}>
-            <div className={s.prefixCol}><Field label="Prefix" value={employee.prefix_en} /></div>
-            <div className={s.nameCol}><Field label="Name" value={employee.first_name_en} /></div>
-            <div className={s.nameCol}><Field label="Lastname" value={employee.last_name_en} /></div>
-          </div>
-          <div className={s.grid}>
-            <Field label="วันเกิด" value={employee.date_of_birth ? new Date(employee.date_of_birth).toLocaleDateString("th-TH") : undefined} />
-            <Field label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
+            <FieldRow label="ฝ่าย" value={employee.department_name} />
+            <FieldRow label="ตำแหน่ง" value={employee.position_name} />
+            <FieldRow label="เขตการขาย" value={employee.sales_area_name} />
           </div>
         </div>
 
-        {/* ข้อมูลติดต่อ */}
-        <div className={s.sectionCard}>
-          <h2 className={s.sectionTitle}>ข้อมูลติดต่อ</h2>
-          <div className={s.grid}>
-            <Field label="อีเมล" value={employee.email} />
-            <Field label="เบอร์โทรศัพท์" value={formatPhone(employee.phone)} />
+        <div className={s.twoCol}>
+          {/* ข้อมูลติดต่อ */}
+          <div className={s.sectionCard}>
+            <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลติดต่อ</h2>
+            <FieldRow label="อีเมล" value={employee.email} />
+            <FieldRow label="เบอร์โทรศัพท์" value={formatPhone(employee.phone)} />
           </div>
-        </div>
 
-        {/* ข้อมูลการทำงาน */}
-        <div className={s.sectionCard}>
-          <h2 className={s.sectionTitle}>ข้อมูลการทำงาน</h2>
-          <div className={s.grid}>
-            <Field label="รหัสพนักงาน" value={employee.employee_id} />
-            <Field label="สถานะ" value={employee.is_active ? "Active" : "Inactive"} />
-            <Field label="ฝ่าย" value={employee.department_name} />
-            <Field label="ตำแหน่ง" value={employee.position_name} />
-            <Field label="เขตการขาย" value={employee.sales_area_name} />
+          {/* สายบังคับบัญชา */}
+          <div className={s.sectionCard}>
+            <h2 className={s.sectionTitle}><span className={s.titleDot} />สายบังคับบัญชา</h2>
+            <FieldRow label="ผู้บังคับบัญชา" value={employee.manager_name} />
           </div>
         </div>
 
         {/* ทรัพย์สินที่มอบหมาย */}
         <div className={s.sectionCard}>
           <div className={s.assetHeader}>
-            <h2 className={s.sectionTitle}>ทรัพย์สินที่มอบหมาย</h2>
+            <h2 className={s.sectionTitle}><span className={s.titleDot} />ทรัพย์สินที่มอบหมาย</h2>
             <span className={s.assetCount}>{assets.length} รายการ</span>
           </div>
           {assets.length === 0 ? (
@@ -203,9 +247,7 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
                     <p className={s.assetCode}>{asset.asset_code ?? "—"}</p>
                   </div>
                   <span className={s.assetDate}>
-                    {asset.assigned_at
-                      ? new Date(asset.assigned_at).toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" })
-                      : "—"}
+                    {formatDate(asset.assigned_at) ?? "—"}
                   </span>
                 </div>
               ))}
@@ -215,6 +257,7 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
 
       </main>
 
+    </div>
     </div>
   );
 }

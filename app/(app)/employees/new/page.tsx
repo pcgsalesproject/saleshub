@@ -1,20 +1,21 @@
 import sql from "@/lib/db";
-import type { Department, Position, SalesArea } from "@/lib/types";
+import type { Department, Position, SalesArea, EmployeeOption } from "@/lib/types";
 import Header from "@/components/Header";
 import EmployeeForm from "../EmployeeForm";
 import { createEmployee } from "@/lib/actions/employees";
 
-async function getData(): Promise<{ departments: Department[]; positions: Position[]; salesAreas: SalesArea[] }> {
-  const [departments, positions, salesAreas] = await Promise.all([
+async function getData(): Promise<{ departments: Department[]; positions: Position[]; salesAreas: SalesArea[]; managers: EmployeeOption[] }> {
+  const [departments, positions, salesAreas, managers] = await Promise.all([
     sql<Department[]>`SELECT id, name FROM departments ORDER BY name`,
     sql<Position[]>`SELECT id, position FROM positions ORDER BY position`,
     sql<SalesArea[]>`SELECT id, name FROM sales_areas ORDER BY name`,
+    sql<EmployeeOption[]>`SELECT id, TRIM(CONCAT(prefix_th, ' ', first_name, ' ', last_name)) AS name FROM employees ORDER BY first_name`,
   ]);
-  return { departments, positions, salesAreas };
+  return { departments, positions, salesAreas, managers };
 }
 
 export default async function NewEmployeePage() {
-  const { departments, positions, salesAreas } = await getData();
+  const { departments, positions, salesAreas, managers } = await getData();
 
   return (
     <div>
@@ -25,6 +26,7 @@ export default async function NewEmployeePage() {
           departments={departments}
           positions={positions}
           salesAreas={salesAreas}
+          managers={managers}
         />
       </div>
     </div>

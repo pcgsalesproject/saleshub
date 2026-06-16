@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import sql from "@/lib/db";
-import type { Employee, Department, Position, SalesArea } from "@/lib/types";
+import type { Employee, Department, Position, SalesArea, EmployeeOption } from "@/lib/types";
 import Header from "@/components/Header";
 import EmployeeForm from "../../EmployeeForm";
 import { updateEmployee } from "@/lib/actions/employees";
@@ -18,21 +18,22 @@ async function getEmployee(id: number): Promise<Employee | null> {
   return rows[0] ?? null;
 }
 
-async function getData(): Promise<{ departments: Department[]; positions: Position[]; salesAreas: SalesArea[] }> {
-  const [departments, positions, salesAreas] = await Promise.all([
+async function getData(excludeId: number): Promise<{ departments: Department[]; positions: Position[]; salesAreas: SalesArea[]; managers: EmployeeOption[] }> {
+  const [departments, positions, salesAreas, managers] = await Promise.all([
     sql<Department[]>`SELECT id, name FROM departments ORDER BY name`,
     sql<Position[]>`SELECT id, position FROM positions ORDER BY position`,
     sql<SalesArea[]>`SELECT id, name FROM sales_areas ORDER BY name`,
+    sql<EmployeeOption[]>`SELECT id, TRIM(CONCAT(prefix_th, ' ', first_name, ' ', last_name)) AS name FROM employees WHERE id != ${excludeId} ORDER BY first_name`,
   ]);
-  return { departments, positions, salesAreas };
+  return { departments, positions, salesAreas, managers };
 }
 
 export default async function EditEmployeePage(props: PageProps<"/employees/[id]/edit">) {
   const { id } = await props.params;
   const numId = Number(id);
-  const [employee, { departments, positions, salesAreas }] = await Promise.all([
+  const [employee, { departments, positions, salesAreas, managers }] = await Promise.all([
     getEmployee(numId),
-    getData(),
+    getData(numId),
   ]);
 
   if (!employee) notFound();
@@ -51,6 +52,7 @@ export default async function EditEmployeePage(props: PageProps<"/employees/[id]
           departments={departments}
           positions={positions}
           salesAreas={salesAreas}
+          managers={managers}
           employee={employee}
         />
       </div>

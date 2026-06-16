@@ -1,11 +1,36 @@
 import Link from "next/link";
 import sql from "@/lib/db";
-import type { Employee } from "@/lib/types";
+import type { Department, Employee } from "@/lib/types";
 import Header from "@/components/Header";
+import EmployeeFilters from "./EmployeeFilters";
 import s from "./page.module.css";
 
-async function getEmployees(search: string): Promise<Employee[]> {
+interface Filters {
+  search: string;
+  department: string;
+  status: string;
+  sort: string;
+}
+
+async function getEmployees(filters: Filters): Promise<Employee[]> {
+  const { search, department, status, sort } = filters;
   const like = `%${search}%`;
+
+  const searchCond = search
+    ? sql`AND (e.first_name ILIKE ${like} OR e.last_name ILIKE ${like}
+           OR e.employee_id ILIKE ${like} OR e.email ILIKE ${like})`
+    : sql``;
+
+  const deptCond = department ? sql`AND e.department_id = ${Number(department)}` : sql``;
+
+  const statusCond = status === "active" ? sql`AND e.is_active = true`
+    : status === "inactive" ? sql`AND e.is_active = false`
+    : sql``;
+
+  const orderBy = sort === "name_desc" ? sql`ORDER BY e.first_name DESC, e.last_name DESC`
+    : sort === "newest" ? sql`ORDER BY e.created_at DESC`
+    : sql`ORDER BY e.first_name ASC, e.last_name ASC`;
+
   return sql<Employee[]>`
     SELECT e.*, d.name AS department_name, p.position AS position_name,
            sa.name AS sales_area_name
@@ -13,10 +38,16 @@ async function getEmployees(search: string): Promise<Employee[]> {
     LEFT JOIN departments d  ON e.department_id  = d.id
     LEFT JOIN positions   p  ON e.position_id    = p.id
     LEFT JOIN sales_areas sa ON e.sales_area_id  = sa.id
-    WHERE e.first_name ILIKE ${like} OR e.last_name ILIKE ${like}
-       OR e.employee_id ILIKE ${like} OR e.email ILIKE ${like}
-    ORDER BY e.created_at DESC
+    WHERE 1=1
+    ${searchCond}
+    ${deptCond}
+    ${statusCond}
+    ${orderBy}
   `;
+}
+
+async function getDepartments(): Promise<Department[]> {
+  return sql<Department[]>`SELECT id, name FROM departments ORDER BY name`;
 }
 
 function Initials({ name }: { name: string }) {
@@ -32,8 +63,24 @@ function Initials({ name }: { name: string }) {
 }
 
 export default async function EmployeesPage(props: PageProps<"/employees">) {
-  const { search = "" } = await props.searchParams ?? {};
-  const employees = await getEmployees(String(search));
+  const {
+    search = "",
+    department = "",
+    status = "",
+    sort = "name_asc",
+  } = await props.searchParams ?? {};
+
+  const filters: Filters = {
+    search: String(search),
+    department: String(department),
+    status: String(status),
+    sort: String(sort),
+  };
+
+  const [employees, departments] = await Promise.all([
+    getEmployees(filters),
+    getDepartments(),
+  ]);
 
   return (
     <div>
@@ -50,20 +97,13 @@ export default async function EmployeesPage(props: PageProps<"/employees">) {
         }
       />
 
-      {/* Search */}
-      <form>
-        <div className={s.searchWrap}>
-          <svg className={s.searchIcon} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-          </svg>
-          <input
-            name="search"
-            defaultValue={String(search)}
-            placeholder="ค้นหาชื่อ, รหัสพนักงาน, อีเมล…"
-            className={s.searchInput}
-          />
-        </div>
-      </form>
+      <EmployeeFilters
+        departments={departments}
+        defaultSearch={filters.search}
+        defaultDepartment={filters.department}
+        defaultStatus={filters.status}
+        defaultSort={filters.sort}
+      />
 
       {/* Cards */}
       {employees.length === 0 ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { Employee, Department, Position, SalesArea } from "@/lib/types";
+import type { Employee, Department, Position, SalesArea, EmployeeOption } from "@/lib/types";
 import SubmitButton from "@/components/SubmitButton";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   departments: Department[];
   positions: Position[];
   salesAreas: SalesArea[];
+  managers: EmployeeOption[];
   employee?: Employee;
 }
 
@@ -36,7 +37,7 @@ function Label({ text, required }: { text: string; required?: boolean }) {
 
 const inputCls = "input";
 
-export default function EmployeeForm({ action, departments, positions, salesAreas, employee }: Props) {
+export default function EmployeeForm({ action, departments, positions, salesAreas, managers, employee }: Props) {
   return (
     <form action={action} className="space-y-8">
 
@@ -44,8 +45,8 @@ export default function EmployeeForm({ action, departments, positions, salesArea
       <section>
         <SectionTitle>ข้อมูลพนักงาน</SectionTitle>
 
-        {/* Row 1 — รหัสพนักงาน + สถานะ */}
-        <div className="grid grid-cols-2 gap-5 mb-5">
+        {/* Row 1 — รหัสพนักงาน + วันที่เริ่มงาน + สถานะ */}
+        <div className="grid grid-cols-3 gap-5 mb-5">
           <div>
             <Label text="รหัสพนักงาน" required />
             <input
@@ -53,6 +54,15 @@ export default function EmployeeForm({ action, departments, positions, salesArea
               required
               defaultValue={employee?.employee_id}
               placeholder="เช่น EMP001"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <Label text="วันที่เริ่มงาน" />
+            <input
+              type="date"
+              name="start_date"
+              defaultValue={employee?.start_date ? new Date(employee.start_date).toISOString().slice(0, 10) : ""}
               className={inputCls}
             />
           </div>
@@ -161,21 +171,21 @@ export default function EmployeeForm({ action, departments, positions, salesArea
         <SectionTitle>ข้อมูลส่วนตัว</SectionTitle>
         <div className="grid grid-cols-2 gap-5">
           <div>
+            <Label text="วัน / เดือน / ปีเกิด" />
+            <input
+              type="date"
+              name="date_of_birth"
+              defaultValue={employee?.date_of_birth ? new Date(employee.date_of_birth).toISOString().slice(0, 10) : ""}
+              className={inputCls}
+            />
+          </div>
+          <div>
             <Label text="เลขบัตรประชาชน" />
             <input
               name="national_id"
               defaultValue={employee?.national_id ?? ""}
               maxLength={13}
               placeholder="x-xxxx-xxxxx-xx-x"
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <Label text="วัน / เดือน / ปีเกิด" />
-            <input
-              type="date"
-              name="date_of_birth"
-              defaultValue={employee?.date_of_birth?.slice(0, 10)}
               className={inputCls}
             />
           </div>
@@ -245,11 +255,24 @@ export default function EmployeeForm({ action, departments, positions, salesArea
               ))}
             </select>
           </div>
+          <div>
+            <Label text="ผู้บังคับบัญชา" />
+            <select
+              name="manager_id"
+              defaultValue={employee?.manager_id ?? ""}
+              className={inputCls}
+            >
+              <option value="">— ไม่มี —</option>
+              {managers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 
       {/* ════════════════ Actions ════════════════ */}
-      <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+      <div className="flex items-center justify-end gap-3 pt-1 border-t border-gray-100">
         <SubmitButton
           label={employee ? "บันทึกการเปลี่ยนแปลง" : "เพิ่มพนักงาน"}
           pendingLabel="กำลังบันทึก…"

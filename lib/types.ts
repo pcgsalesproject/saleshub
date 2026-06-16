@@ -34,9 +34,17 @@ export interface Employee {
   position_name: string | null;
   sales_area_id: number | null;
   sales_area_name: string | null;
+  manager_id: number | null;
+  manager_name: string | null;
+  start_date: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface EmployeeOption {
+  id: number;
+  name: string;
 }
 
 export interface AssetType {
@@ -47,6 +55,7 @@ export interface AssetType {
 
 export interface Asset {
   id: number;
+  asset_tag: string;
   asset_code: string | null;
   asset_name: string;
   asset_type_id: number | null;
