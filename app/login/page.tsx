@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState } from "react";
 import { login } from "./actions";
 
@@ -10,25 +11,24 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#102E5A] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white/15 mb-4">
-            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h1 className="text-xl font-bold text-white">IT Asset Tracker</h1>
-          <p className="text-sm text-white/50 mt-1">Management System</p>
-        </div>
-
         {/* Card */}
-        <div className="bg-white rounded-2xl p-8 shadow-xl">
-          <h2 className="text-lg font-semibold text-gray-800 mb-6">เข้าสู่ระบบ</h2>
+        <div className="bg-white rounded-2xl px-8 pb-8 pt-4 shadow-xl">
+          <div className="flex flex-col items-center mb-1.5">
+            <Image
+              src="/logo.png"
+              alt="Saleshub"
+              width={200}
+              height={100}
+              className="object-contain"
+              priority
+              unoptimized
+            />
+          </div>
 
-          <form action={action} className="space-y-4">
+          <form action={action} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                อีเมล
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
               </label>
               <input
                 name="email"
@@ -42,7 +42,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                รหัสผ่าน
+                Password
               </label>
               <input
                 name="password"
@@ -54,23 +54,37 @@ export default function LoginPage() {
               />
             </div>
 
+            <div className="flex items-center gap-2">
+              <input
+                id="remember"
+                name="remember"
+                type="checkbox"
+                className="w-4 h-4 accent-[#102E5A] cursor-pointer"
+              />
+              <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">
+                จดจำฉันไว้
+              </label>
+            </div>
+
             {state?.error && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                 {state.error}
               </p>
             )}
 
+            <div className="flex justify-center">
             <button
               type="submit"
               disabled={pending}
-              className="w-full btn-primary justify-center py-2.5 mt-2 disabled:opacity-60"
+              className="btn-primary px-8 py-3 mt-2 disabled:opacity-60"
             >
               {pending ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
             </button>
+            </div>
           </form>
         </div>
 
-        <p className="text-center text-xs text-white/30 mt-6">© 2026 IT Asset Tracker</p>
+        <p className="text-center text-xs text-white/30 mt-6">© 2026 PCG Sales Hub</p>
       </div>
     </div>
   );

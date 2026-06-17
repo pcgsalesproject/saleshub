@@ -57,16 +57,9 @@ export default function Sidebar() {
 
   return (
     <aside className="flex flex-col w-64 min-h-screen bg-[#102E5A] text-white">
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/15">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <div>
-          <p className="text-sm font-semibold leading-tight">IT Asset Tracker</p>
-          <p className="text-xs text-white/50 leading-tight">Management System</p>
-        </div>
+      <div className="flex flex-col items-center px-4 py-5 border-b border-white/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/sidebar_logo.png" alt="Saleshub" className="w-44 object-contain" />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -101,7 +94,7 @@ export default function Sidebar() {
             ออกจากระบบ
           </button>
         </form>
-        <p className="text-xs text-white/40 text-center">© 2026 IT Asset Tracker</p>
+        <p className="text-xs text-white/40 text-center">© 2026 PCG Sales Hub</p>
       </div>
     </aside>
   );
