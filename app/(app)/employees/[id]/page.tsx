@@ -3,20 +3,27 @@ import { notFound } from "next/navigation";
 import sql from "@/lib/db";
 import type { Employee } from "@/lib/types";
 import s from "./page.module.css";
+import { returnAssetFromEmployee } from "@/lib/actions/assets";
 
 interface AssignedAsset {
   id: number;
+  asset_id: number;
+  asset_tag: string;
   asset_name: string;
   asset_code: string | null;
+  asset_type_name: string | null;
   assigned_at: string | null;
+  returned_at: string | null;
 }
 
 async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
   return sql<AssignedAsset[]>`
-    SELECT aa.id, a.asset_name, a.asset_code, aa.assigned_at
+    SELECT aa.id, a.id AS asset_id, a.asset_tag, a.asset_name, a.asset_code,
+           at.name AS asset_type_name, aa.assigned_at, aa.returned_at
     FROM asset_assignments aa
     JOIN assets a ON aa.asset_id = a.id
-    WHERE aa.employee_id = ${employeeId} AND aa.returned_at IS NULL
+    LEFT JOIN asset_types at ON a.asset_type_id = at.id
+    WHERE aa.employee_id = ${employeeId}
     ORDER BY aa.assigned_at DESC
   `;
 }
@@ -67,12 +74,19 @@ function FieldRow({ label, value }: { label: string; value?: string | null }) {
 
 export default async function EmployeeDetailPage(props: PageProps<"/employees/[id]">) {
   const { id } = await props.params;
-  const [employee, assets] = await Promise.all([
+  const { tab = "profile" } = await props.searchParams ?? {};
+
+  const [employee, allAssets] = await Promise.all([
     getEmployee(Number(id)),
     getAssignedAssets(Number(id)),
   ]);
 
   if (!employee) notFound();
+
+  const currentAssets = allAssets.filter((a) => !a.returned_at);
+  const historyAssets = allAssets.filter((a) => a.returned_at);
+
+  const isAssignTab = tab === "assignments";
 
   const fullName = [employee.prefix_th, employee.first_name, employee.last_name].filter(Boolean).join(" ");
   const fullNameEn = [employee.prefix_en, employee.first_name_en, employee.last_name_en].filter(Boolean).join(" ");
@@ -156,25 +170,25 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
               </svg>
             </div>
             <div>
-              <p className={s.kpiValue}>{assets.length}</p>
+              <p className={s.kpiValue}>{currentAssets.length}</p>
               <p className={s.kpiLabel}>ทรัพย์สินที่ถือครอง</p>
             </div>
           </div>
         </div>
 
         <nav className={s.nav}>
-          <div className={`${s.navItem} ${s.navItemActive}`}>
+          <Link href={`/employees/${employee.id}`} className={`${s.navItem} ${!isAssignTab ? s.navItemActive : ""}`}>
             <svg className={s.navIcon} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
             </svg>
             ข้อมูลส่วนตัว
-          </div>
-          <div className={s.navItem}>
+          </Link>
+          <Link href={`/employees/${employee.id}?tab=assignments`} className={`${s.navItem} ${isAssignTab ? s.navItemActive : ""}`}>
             <svg className={s.navIcon} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
             </svg>
             มอบหมายทรัพย์สิน
-          </div>
+          </Link>
         </nav>
 
       </aside>
@@ -182,78 +196,119 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
       {/* ── Main content ── */}
       <main className={s.main}>
 
-        {/* ข้อมูลส่วนตัว */}
-        <div className={s.twoCol}>
-          <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
-            <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลส่วนตัว</h2>
-            <FieldRow label="ชื่อ-นามสกุล" value={fullName} />
-            <FieldRow label="Name (English)" value={fullNameEn} />
-            <FieldRow label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
-            <FieldRow label="วันเกิด" value={formatDate(employee.date_of_birth)} />
-            <FieldRow label="อายุ" value={age !== null ? `${age} ปี` : undefined} />
-          </div>
-
-          {/* ข้อมูลการทำงาน */}
-          <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
-            <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลการทำงาน</h2>
-            <FieldRow label="รหัสพนักงาน" value={employee.employee_id} />
-            <div className={s.fieldRow}>
-              <span className={s.fieldRowLabel}>สถานะ</span>
-              <span className={s.statusValue}>
-                <span className={employee.is_active ? s.statusDotGreen : s.statusDotGray} />
-                {employee.is_active ? "Active" : "Inactive"}
-              </span>
+        {!isAssignTab ? (<>
+          {/* ── Tab: ข้อมูลส่วนตัว ── */}
+          <div className={s.twoCol}>
+            <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
+              <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลส่วนตัว</h2>
+              <FieldRow label="ชื่อ-นามสกุล" value={fullName} />
+              <FieldRow label="Name (English)" value={fullNameEn} />
+              <FieldRow label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
+              <FieldRow label="วันเกิด" value={formatDate(employee.date_of_birth)} />
+              <FieldRow label="อายุ" value={age !== null ? `${age} ปี` : undefined} />
             </div>
-            <FieldRow label="ฝ่าย" value={employee.department_name} />
-            <FieldRow label="ตำแหน่ง" value={employee.position_name} />
-            <FieldRow label="เขตการขาย" value={employee.sales_area_name} />
-          </div>
-        </div>
-
-        <div className={s.twoCol}>
-          {/* ข้อมูลติดต่อ */}
-          <div className={s.sectionCard}>
-            <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลติดต่อ</h2>
-            <FieldRow label="อีเมล" value={employee.email} />
-            <FieldRow label="เบอร์โทรศัพท์" value={formatPhone(employee.phone)} />
-          </div>
-
-          {/* สายบังคับบัญชา */}
-          <div className={s.sectionCard}>
-            <h2 className={s.sectionTitle}><span className={s.titleDot} />สายบังคับบัญชา</h2>
-            <FieldRow label="ผู้บังคับบัญชา" value={employee.manager_name} />
-          </div>
-        </div>
-
-        {/* ทรัพย์สินที่มอบหมาย */}
-        <div className={s.sectionCard}>
-          <div className={s.assetHeader}>
-            <h2 className={s.sectionTitle}><span className={s.titleDot} />ทรัพย์สินที่มอบหมาย</h2>
-            <span className={s.assetCount}>{assets.length} รายการ</span>
-          </div>
-          {assets.length === 0 ? (
-            <p className={s.assetEmpty}>ยังไม่มีทรัพย์สินที่มอบหมาย</p>
-          ) : (
-            <div className={s.assetList}>
-              {assets.map((asset) => (
-                <div key={asset.id} className={s.assetItem}>
-                  <div className={s.assetIcon}>
-                    <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-5 h-5 text-gray-500">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                    </svg>
-                  </div>
-                  <div className={s.assetInfo}>
-                    <p className={s.assetName}>{asset.asset_name}</p>
-                    <p className={s.assetCode}>{asset.asset_code ?? "—"}</p>
-                  </div>
-                  <span className={s.assetDate}>
-                    {formatDate(asset.assigned_at) ?? "—"}
-                  </span>
-                </div>
-              ))}
+            <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
+              <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลการทำงาน</h2>
+              <FieldRow label="รหัสพนักงาน" value={employee.employee_id} />
+              <div className={s.fieldRow}>
+                <span className={s.fieldRowLabel}>สถานะ</span>
+                <span className={s.statusValue}>
+                  <span className={employee.is_active ? s.statusDotGreen : s.statusDotGray} />
+                  {employee.is_active ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <FieldRow label="ฝ่าย" value={employee.department_name} />
+              <FieldRow label="ตำแหน่ง" value={employee.position_name} />
+              <FieldRow label="เขตการขาย" value={employee.sales_area_name} />
             </div>
-          )}
-        </div>
+          </div>
+          <div className={s.twoCol}>
+            <div className={s.sectionCard}>
+              <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลติดต่อ</h2>
+              <FieldRow label="อีเมล" value={employee.email} />
+              <FieldRow label="เบอร์โทรศัพท์" value={formatPhone(employee.phone)} />
+            </div>
+            <div className={s.sectionCard}>
+              <h2 className={s.sectionTitle}><span className={s.titleDot} />สายบังคับบัญชา</h2>
+              <FieldRow label="ผู้บังคับบัญชา" value={employee.manager_name} />
+            </div>
+          </div>
+        </>) : (<>
+          {/* ── Tab: มอบหมายทรัพย์สิน ── */}
+
+          {/* ถือครองอยู่ */}
+          <div className={s.sectionCard}>
+            <div className={s.assetHeader}>
+              <h2 className={s.sectionTitle}><span className={s.titleDot} />ถือครองอยู่</h2>
+              <span className={s.assetCount}>{currentAssets.length} รายการ</span>
+            </div>
+            {currentAssets.length === 0 ? (
+              <p className={s.assetEmpty}>ไม่มีทรัพย์สินที่ถือครองอยู่</p>
+            ) : (
+              <div className={s.assetList}>
+                {currentAssets.map((a) => {
+                  const returnAction = returnAssetFromEmployee.bind(null, a.id, employee.id);
+                  return (
+                    <div key={a.id} className={s.assetItem}>
+                      <div className={s.assetIcon}>
+                        <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-5 h-5 text-gray-500">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                        </svg>
+                      </div>
+                      <div className={s.assetInfo}>
+                        <Link href={`/assets/${a.asset_id}`} className="hover:text-[#102E5A] hover:underline">
+                          <p className={s.assetName}>{a.asset_name}</p>
+                        </Link>
+                        <p className={s.assetCode}>{a.asset_type_name ?? "—"} · {a.asset_code ?? "—"}</p>
+                      </div>
+                      <span className={s.assetDate}>รับ {formatDate(a.assigned_at)}</span>
+                      <form action={returnAction}>
+                        <button type="submit" className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded px-2.5 py-1 ml-3 transition-colors">
+                          คืน
+                        </button>
+                      </form>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ประวัติ */}
+          <div className={s.sectionCard}>
+            <div className={s.assetHeader}>
+              <h2 className={s.sectionTitle}><span className={s.titleDot} />ประวัติการใช้งาน</h2>
+              <span className={s.assetCount}>{historyAssets.length} รายการ</span>
+            </div>
+            {historyAssets.length === 0 ? (
+              <p className={s.assetEmpty}>ยังไม่มีประวัติการคืนทรัพย์สิน</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ทรัพย์สิน</th>
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">วันที่รับ</th>
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2">วันที่คืน</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyAssets.map((a) => (
+                    <tr key={a.id} className="border-b border-gray-50 last:border-0">
+                      <td className="py-3 pr-4">
+                        <Link href={`/assets/${a.asset_id}`} className="font-medium text-gray-800 hover:text-[#102E5A] hover:underline">
+                          {a.asset_name}
+                        </Link>
+                        <p className="text-xs text-gray-400 mt-0.5">{a.asset_type_name ?? "—"} · {a.asset_code ?? "—"}</p>
+                      </td>
+                      <td className="py-3 pr-4 text-gray-600">{formatDate(a.assigned_at)}</td>
+                      <td className="py-3 text-gray-600">{formatDate(a.returned_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>)}
 
       </main>
 
