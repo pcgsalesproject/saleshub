@@ -63,6 +63,7 @@ export interface Asset {
   brand: string | null;
   model: string | null;
   serial_number: string | null;
+  phone_number: string | null;
   purchase_price: number | null;
   po_number: string | null;
   vendor: string | null;

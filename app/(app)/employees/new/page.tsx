@@ -8,7 +8,7 @@ async function getData(): Promise<{ departments: Department[]; positions: Positi
   const [departments, positions, salesAreas, managers] = await Promise.all([
     sql<Department[]>`SELECT id, name FROM departments ORDER BY name`,
     sql<Position[]>`SELECT id, position FROM positions ORDER BY position`,
-    sql<SalesArea[]>`SELECT id, name FROM sales_areas ORDER BY name`,
+    sql<SalesArea[]>`SELECT id, area_name AS name FROM sales_areas ORDER BY area_name`,
     sql<EmployeeOption[]>`SELECT id, TRIM(CONCAT(prefix_th, ' ', first_name, ' ', last_name)) AS name FROM employees ORDER BY first_name`,
   ]);
   return { departments, positions, salesAreas, managers };

@@ -61,6 +61,7 @@ CREATE TABLE assets (
     brand VARCHAR,
     model VARCHAR,
     serial_number VARCHAR UNIQUE,
+    phone_number VARCHAR,
     purchase_price NUMERIC,
     po_number VARCHAR,
     vendor VARCHAR,
@@ -79,7 +80,16 @@ CREATE TABLE asset_assignments (
     asset_id INT REFERENCES assets(id),
     assigned_at TIMESTAMP,
     returned_at TIMESTAMP,
-    note TEXT
+    note TEXT,
+    doc_number TEXT,
+    proposed_by_id INT REFERENCES employees(id),
+    endorsed_by_id INT REFERENCES employees(id),
+    approved_by_id INT REFERENCES employees(id)
+);
+
+CREATE TABLE document_number_sequences (
+    year INT PRIMARY KEY,
+    last_seq INT NOT NULL DEFAULT 0
 );
 
 -- Seed Data (Optional)

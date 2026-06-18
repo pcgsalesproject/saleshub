@@ -38,11 +38,20 @@ function generateAssetTag(typeCode: string) {
   return `${typeCode}${year}${random}`;
 }
 
+function formatPhoneNumber(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export default function AssetForm({ action, assetTypes, asset }: Props) {
   const [assetTag, setAssetTag] = useState(asset?.asset_tag ?? "");
   const [brand, setBrand] = useState(asset?.brand ?? "");
   const [model, setModel] = useState(asset?.model ?? "");
   const assetName = [brand, model].filter(Boolean).join(" ");
+
+  const [phoneNumber, setPhoneNumber] = useState(asset?.phone_number ?? "");
 
   const [priceDisplay, setPriceDisplay] = useState(
     asset?.purchase_price ? Number(asset.purchase_price).toLocaleString("en-US") : ""
@@ -124,14 +133,25 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
           </div>
         </div>
 
-        {/* Row 2: Serial | Asset Tag | รหัสทรัพย์สิน | QR */}
-        <div className="grid grid-cols-4 gap-5">
+        {/* Row 2: Serial | เบอร์โทรศัพท์ | Asset Tag | รหัสทรัพย์สิน | QR */}
+        <div className="grid grid-cols-5 gap-5">
           <div>
             <Label text="หมายเลขซีเรียล" />
             <input
               name="serial_number"
               defaultValue={asset?.serial_number ?? ""}
               placeholder="Serial Number"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <Label text="เบอร์โทรศัพท์" />
+            <input
+              name="phone_number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
+              placeholder="เช่น 081-234-5678"
+              inputMode="numeric"
               className={inputCls}
             />
           </div>

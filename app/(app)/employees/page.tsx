@@ -33,7 +33,7 @@ async function getEmployees(filters: Filters): Promise<Employee[]> {
 
   return sql<Employee[]>`
     SELECT e.*, d.name AS department_name, p.position AS position_name,
-           sa.name AS sales_area_name
+           sa.area_name AS sales_area_name
     FROM employees e
     LEFT JOIN departments d  ON e.department_id  = d.id
     LEFT JOIN positions   p  ON e.position_id    = p.id

@@ -31,7 +31,7 @@ async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
 async function getEmployee(id: number): Promise<Employee | null> {
   const rows = await sql<Employee[]>`
     SELECT e.*, d.name AS department_name, p.position AS position_name,
-           sa.name AS sales_area_name,
+           sa.area_name AS sales_area_name,
            TRIM(CONCAT(m.prefix_th, ' ', m.first_name, ' ', m.last_name)) AS manager_name
     FROM   employees e
     LEFT JOIN departments d  ON e.department_id = d.id

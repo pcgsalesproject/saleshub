@@ -125,6 +125,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
           <Field label="ยี่ห้อ" value={asset.brand} />
           <Field label="รุ่น" value={asset.model} />
           <Field label="หมายเลขซีเรียล" value={asset.serial_number} />
+          <Field label="เบอร์โทรศัพท์" value={asset.phone_number} />
           <div className="flex items-center justify-between gap-4 py-3">
             <span className="text-sm text-gray-400">สถานะ</span>
             {current ? (

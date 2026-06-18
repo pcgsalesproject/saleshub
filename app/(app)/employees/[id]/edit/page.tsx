@@ -3,12 +3,13 @@ import sql from "@/lib/db";
 import type { Employee, Department, Position, SalesArea, EmployeeOption } from "@/lib/types";
 import Header from "@/components/Header";
 import EmployeeForm from "../../EmployeeForm";
+import DeleteButton from "../../DeleteButton";
 import { updateEmployee } from "@/lib/actions/employees";
 
 async function getEmployee(id: number): Promise<Employee | null> {
   const rows = await sql<Employee[]>`
     SELECT e.*, d.name AS department_name, p.position AS position_name,
-           sa.name AS sales_area_name
+           sa.area_name AS sales_area_name
     FROM   employees e
     LEFT JOIN departments d  ON e.department_id = d.id
     LEFT JOIN positions   p  ON e.position_id   = p.id
@@ -22,7 +23,7 @@ async function getData(excludeId: number): Promise<{ departments: Department[]; 
   const [departments, positions, salesAreas, managers] = await Promise.all([
     sql<Department[]>`SELECT id, name FROM departments ORDER BY name`,
     sql<Position[]>`SELECT id, position FROM positions ORDER BY position`,
-    sql<SalesArea[]>`SELECT id, name FROM sales_areas ORDER BY name`,
+    sql<SalesArea[]>`SELECT id, area_name AS name FROM sales_areas ORDER BY area_name`,
     sql<EmployeeOption[]>`SELECT id, TRIM(CONCAT(prefix_th, ' ', first_name, ' ', last_name)) AS name FROM employees WHERE id != ${excludeId} ORDER BY first_name`,
   ]);
   return { departments, positions, salesAreas, managers };
@@ -45,6 +46,7 @@ export default async function EditEmployeePage(props: PageProps<"/employees/[id]
       <Header
         title="แก้ไขข้อมูลพนักงาน"
         subtitle={`${[employee.prefix_th, employee.first_name, employee.last_name].filter(Boolean).join(" ")} — ${employee.employee_id}`}
+        actions={<DeleteButton id={numId} name={[employee.prefix_th, employee.first_name, employee.last_name].filter(Boolean).join(" ")} />}
       />
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <EmployeeForm
