@@ -19,9 +19,11 @@ interface AssignmentRow {
 
 interface DocumentRow {
   doc_number: string;
-  assigned_at: string | null;
+  doc_type: "receive" | "return";
+  doc_date: string | null;
   employee_id: number;
   employee_name: string;
+  department_name: string | null;
 }
 
 async function getAssignments(status: string): Promise<AssignmentRow[]> {
@@ -54,16 +56,32 @@ async function getDocuments(): Promise<DocumentRow[]> {
   return sql<DocumentRow[]>`
     SELECT * FROM (
       SELECT DISTINCT ON (aa.doc_number)
-        aa.doc_number,
-        aa.assigned_at,
+        aa.doc_number, 'receive' AS doc_type,
+        aa.assigned_at AS doc_date,
         e.id AS employee_id,
-        TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name
+        TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name,
+        d.name AS department_name
       FROM asset_assignments aa
       JOIN employees e ON aa.employee_id = e.id
+      LEFT JOIN departments d ON e.department_id = d.id
       WHERE aa.doc_number IS NOT NULL
       ORDER BY aa.doc_number, aa.id
-    ) doc
-    ORDER BY assigned_at DESC
+    ) receive_doc
+    UNION ALL
+    SELECT * FROM (
+      SELECT DISTINCT ON (aa.return_doc_number)
+        aa.return_doc_number AS doc_number, 'return' AS doc_type,
+        aa.returned_at AS doc_date,
+        e.id AS employee_id,
+        TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name,
+        d.name AS department_name
+      FROM asset_assignments aa
+      JOIN employees e ON aa.employee_id = e.id
+      LEFT JOIN departments d ON e.department_id = d.id
+      WHERE aa.return_doc_number IS NOT NULL
+      ORDER BY aa.return_doc_number, aa.id
+    ) return_doc
+    ORDER BY doc_date DESC
   `;
 }
 
@@ -97,7 +115,7 @@ export default async function AssignmentsPage(props: PageProps<"/assignments">) 
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            รับทรัพย์สิน
+            แบบฟอร์มทรัพย์สิน
           </Link>
         }
       />
@@ -139,24 +157,38 @@ async function DocumentRecords() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3">เลขที่เอกสาร</th>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3">ผู้รับทรัพย์สิน</th>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3">วันที่รับทรัพย์สิน</th>
-              <th className="px-5 py-3 w-24"></th>
+              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-36">วันที่</th>
+              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-40">เลขที่เอกสาร</th>
+              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-36">ประเภท</th>
+              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-54">พนักงาน</th>
+              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-40">ฝ่าย</th>
+              <th className="px-5 py-3 w-32"></th>
             </tr>
           </thead>
           <tbody>
             {documents.map((d) => (
-              <tr key={d.doc_number} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+              <tr key={`${d.doc_type}-${d.doc_number}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                <td className="px-5 py-3.5 text-gray-600">{formatDate(d.doc_date)}</td>
                 <td className="px-5 py-3.5 font-mono text-gray-800">{d.doc_number}</td>
+                <td className="px-5 py-3.5">
+                  {d.doc_type === "return" ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full px-2.5 py-1">
+                      คืนทรัพย์สิน
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-full px-2.5 py-1">
+                      รับทรัพย์สิน
+                    </span>
+                  )}
+                </td>
                 <td className="px-5 py-3.5">
                   <Link href={`/employees/${d.employee_id}?tab=assignments`} className="font-medium text-gray-800 hover:text-[#102E5A] hover:underline">
                     {d.employee_name}
                   </Link>
                 </td>
-                <td className="px-5 py-3.5 text-gray-600">{formatDate(d.assigned_at)}</td>
+                <td className="px-5 py-3.5 text-gray-600">{d.department_name ?? "—"}</td>
                 <td className="px-5 py-3.5">
-                  <ViewPdfButton docNumber={d.doc_number} />
+                  <ViewPdfButton docNumber={d.doc_number} docType={d.doc_type} />
                 </td>
               </tr>
             ))}

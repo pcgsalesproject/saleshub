@@ -84,7 +84,12 @@ CREATE TABLE asset_assignments (
     doc_number TEXT,
     proposed_by_id INT REFERENCES employees(id),
     endorsed_by_id INT REFERENCES employees(id),
-    approved_by_id INT REFERENCES employees(id)
+    approved_by_id INT REFERENCES employees(id),
+    return_doc_number TEXT,
+    condition TEXT,
+    return_proposed_by_id INT REFERENCES employees(id),
+    return_endorsed_by_id INT REFERENCES employees(id),
+    return_approved_by_id INT REFERENCES employees(id)
 );
 
 CREATE TABLE document_number_sequences (

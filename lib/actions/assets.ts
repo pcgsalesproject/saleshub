@@ -119,6 +119,36 @@ export async function acknowledgeAssets(
   return docNumber;
 }
 
+export async function returnAssets(
+  items: { assignmentId: number; condition: string }[],
+  returnedAt: string,
+  proposedById: number | null,
+  endorsedById: number | null,
+  approvedById: number | null
+): Promise<string> {
+  if (!items.length) throw new Error("กรุณาเลือกทรัพย์สินอย่างน้อย 1 รายการ");
+
+  const docNumber = await getNextDocumentNumber();
+
+  await Promise.all(
+    items.map((item) =>
+      sql`
+        UPDATE asset_assignments SET
+          returned_at = ${returnedAt},
+          condition = ${item.condition},
+          return_doc_number = ${docNumber},
+          return_proposed_by_id = ${proposedById},
+          return_endorsed_by_id = ${endorsedById},
+          return_approved_by_id = ${approvedById}
+        WHERE id = ${item.assignmentId}
+      `
+    )
+  );
+
+  revalidatePath("/assignments");
+  return docNumber;
+}
+
 interface ReprintPerson {
   name: string;
   position_name: string | null;
@@ -210,6 +240,107 @@ export async function getDocumentForReprint(docNumber: string): Promise<ReprintD
       serial_number: r.serial_number,
       phone_number: r.phone_number,
       asset_tag: r.asset_tag,
+    })),
+    proposedBy: first.proposed_by_name
+      ? { name: first.proposed_by_name, position_name: first.proposed_by_position, department_name: first.proposed_by_department }
+      : null,
+    endorsedBy: first.endorsed_by_name
+      ? { name: first.endorsed_by_name, position_name: first.endorsed_by_position, department_name: first.endorsed_by_department }
+      : null,
+    approvedBy: first.approved_by_name
+      ? { name: first.approved_by_name, position_name: first.approved_by_position, department_name: first.approved_by_department }
+      : null,
+  };
+}
+
+export interface ReprintReturnDocument {
+  docNumber: string;
+  returnedAt: string;
+  employee: { employee_id: string; name: string; position_name: string | null; department_name: string | null };
+  assets: { asset_name: string; asset_type_name: string | null; brand: string | null; model: string | null; serial_number: string | null; phone_number: string | null; asset_tag: string; condition: string }[];
+  proposedBy: ReprintPerson | null;
+  endorsedBy: ReprintPerson | null;
+  approvedBy: ReprintPerson | null;
+}
+
+export async function getReturnDocumentForReprint(docNumber: string): Promise<ReprintReturnDocument> {
+  const rows = await sql<{
+    returned_at: string;
+    employee_id: string;
+    employee_name: string;
+    employee_position: string | null;
+    employee_department: string | null;
+    asset_name: string;
+    asset_type_name: string | null;
+    brand: string | null;
+    model: string | null;
+    serial_number: string | null;
+    phone_number: string | null;
+    asset_tag: string;
+    condition: string | null;
+    proposed_by_name: string | null;
+    proposed_by_position: string | null;
+    proposed_by_department: string | null;
+    endorsed_by_name: string | null;
+    endorsed_by_position: string | null;
+    endorsed_by_department: string | null;
+    approved_by_name: string | null;
+    approved_by_position: string | null;
+    approved_by_department: string | null;
+  }[]>`
+    SELECT
+      aa.returned_at::date::text AS returned_at,
+      e.employee_id, TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name,
+      ep.position AS employee_position, ed.name AS employee_department,
+      a.asset_name, at.name AS asset_type_name, a.brand, a.model, a.serial_number, a.phone_number, a.asset_tag,
+      aa.condition,
+      TRIM(CONCAT(pb.prefix_th, ' ', pb.first_name, ' ', pb.last_name)) AS proposed_by_name,
+      pbp.position AS proposed_by_position, pbd.name AS proposed_by_department,
+      TRIM(CONCAT(eb.prefix_th, ' ', eb.first_name, ' ', eb.last_name)) AS endorsed_by_name,
+      ebp.position AS endorsed_by_position, ebd.name AS endorsed_by_department,
+      TRIM(CONCAT(ab.prefix_th, ' ', ab.first_name, ' ', ab.last_name)) AS approved_by_name,
+      abp.position AS approved_by_position, abd.name AS approved_by_department
+    FROM asset_assignments aa
+    JOIN employees e ON aa.employee_id = e.id
+    LEFT JOIN positions ep ON e.position_id = ep.id
+    LEFT JOIN departments ed ON e.department_id = ed.id
+    JOIN assets a ON aa.asset_id = a.id
+    LEFT JOIN asset_types at ON a.asset_type_id = at.id
+    LEFT JOIN employees pb ON aa.return_proposed_by_id = pb.id
+    LEFT JOIN positions pbp ON pb.position_id = pbp.id
+    LEFT JOIN departments pbd ON pb.department_id = pbd.id
+    LEFT JOIN employees eb ON aa.return_endorsed_by_id = eb.id
+    LEFT JOIN positions ebp ON eb.position_id = ebp.id
+    LEFT JOIN departments ebd ON eb.department_id = ebd.id
+    LEFT JOIN employees ab ON aa.return_approved_by_id = ab.id
+    LEFT JOIN positions abp ON ab.position_id = abp.id
+    LEFT JOIN departments abd ON ab.department_id = abd.id
+    WHERE aa.return_doc_number = ${docNumber}
+    ORDER BY aa.id
+  `;
+
+  if (!rows.length) throw new Error("ไม่พบเอกสาร");
+
+  const first = rows[0];
+
+  return {
+    docNumber,
+    returnedAt: first.returned_at,
+    employee: {
+      employee_id: first.employee_id,
+      name: first.employee_name,
+      position_name: first.employee_position,
+      department_name: first.employee_department,
+    },
+    assets: rows.map((r) => ({
+      asset_name: r.asset_name,
+      asset_type_name: r.asset_type_name,
+      brand: r.brand,
+      model: r.model,
+      serial_number: r.serial_number,
+      phone_number: r.phone_number,
+      asset_tag: r.asset_tag,
+      condition: r.condition ?? "-",
     })),
     proposedBy: first.proposed_by_name
       ? { name: first.proposed_by_name, position_name: first.proposed_by_position, department_name: first.proposed_by_department }

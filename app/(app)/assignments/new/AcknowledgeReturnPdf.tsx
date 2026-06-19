@@ -24,8 +24,6 @@ const styles = StyleSheet.create({
   section: { marginTop: 18, marginBottom: 6, fontWeight: "bold" },
   divider: { borderBottomWidth: LINE_W, borderBottomColor: LINE_C, marginTop: 12 },
 
-  // Grid lines are drawn as solid filled rectangles (not `border`) so every
-  // line renders at the exact same thickness regardless of PDF viewer.
   tableFrame: { backgroundColor: LINE_C, padding: LINE_W, marginTop: 6 },
   tr: { flexDirection: "row" },
   rowBorder: { borderBottomWidth: LINE_W, borderBottomColor: LINE_C },
@@ -33,16 +31,18 @@ const styles = StyleSheet.create({
   th: { flex: 1, padding: 4, fontWeight: "bold", textAlign: "center", backgroundColor: "#f2f2f2" },
   td: { flex: 1, padding: 4, backgroundColor: "#fff" },
   colNo: { flex: 0.3, textAlign: "center" },
-  colItem: { flex: 0.7 },
-  colTag: { flex: 0.6, textAlign: "center" },
+  colItem: { flex: 0.65 },
+  colSerial: { flex: 0.85, fontSize: 8 },
+  colTag: { flex: 0.65, textAlign: "center" },
+  colCondition: { flex: 0.4, textAlign: "center" },
 
-  termItem: { marginBottom: 3, flexDirection: "row" },
-  termNo: { width: 16 },
-  termText: { flex: 1 },
-  signContainer: { flexDirection: "row", justifyContent: "flex-end", marginTop: 40 },
-  signBlock: { alignItems: "center", width: 240 },
+  signContainer: { marginTop: 54 },
+  signRow: { flexDirection: "row" },
+  signRowRight: { justifyContent: "flex-end" },
+  signRowLeft: { justifyContent: "flex-start" },
+  signBlock: { alignItems: "center", marginBottom: 24 },
 
-  approvalFrame: { flexDirection: "row", backgroundColor: LINE_C, padding: LINE_W, marginTop: 32 },
+  approvalFrame: { flexDirection: "row", backgroundColor: LINE_C, padding: LINE_W, marginTop: 42 },
   approvalCell: { flex: 1, backgroundColor: "#fff" },
   approvalHead: { textAlign: "center", fontWeight: "bold", padding: 6, backgroundColor: "#f2f2f2", borderBottomWidth: LINE_W, borderBottomColor: LINE_C },
   approvalBody: { padding: 6, minHeight: 70, backgroundColor: "#fff", alignItems: "center", justifyContent: "flex-start" },
@@ -52,33 +52,11 @@ const styles = StyleSheet.create({
   approvalSub: { textAlign: "center", marginTop: 2, fontSize: 9, color: "#333" },
 });
 
-const TERMS = [
-  "ทรัพย์สินที่ได้รับถือเป็นกรรมสิทธิ์ของบริษัทฯ ใช้เพื่อการปฏิบัติงานเท่านั้น",
-  "ผู้ครอบครองต้องดูแลรักษาทรัพย์สินให้อยู่ในสภาพพร้อมใช้งาน ห้ามโอน ยืม หรือส่งต่อให้บุคคลภายนอก",
-  "ห้ามใช้ทรัพย์สินในทางที่ไม่เหมาะสม เช่น ใช้เพื่อประโยชน์ส่วนตัว ผิดศีลธรรม ผิดกฎหมาย หรือกระทบต่อชื่อเสียงของบริษัทฯ",
-  "ห้ามติดตั้ง แก้ไข หรือดัดแปลงอุปกรณ์และซอฟต์แวร์โดยไม่ได้รับอนุญาตจากบริษัทฯ",
-  "บริษัทฯ มีสิทธิ์ตรวจสอบสภาพและการใช้งานของทรัพย์สินได้ทุกเมื่อ ผู้ครอบครองต้องให้ความร่วมมือ",
-  "หากทรัพย์สินสูญหายหรือชำรุด ต้องรีบแจ้งหัวหน้างานหรือฝ่ายที่เกี่ยวข้องทันที ",
-];
-
 function formatPhoneNumber(phone: string | null): string {
   if (!phone) return "-";
   const digits = phone.replace(/\D/g, "");
   if (digits.length !== 10) return phone;
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
-
-const THAI_MONTHS = [
-  "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
-];
-
-function formatThaiDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-");
-  if (!year || !month || !day) return isoDate;
-  const monthName = THAI_MONTHS[Number(month) - 1];
-  if (!monthName) return isoDate;
-  return `${Number(day)} ${monthName} ${Number(year) + 543}`;
 }
 
 interface SignPerson {
@@ -87,38 +65,38 @@ interface SignPerson {
   department_name: string | null;
 }
 
-export interface AcknowledgePdfProps {
+export interface AcknowledgeReturnPdfProps {
   employee: { employee_id: string; name: string; position_name: string | null; department_name: string | null };
-  assets: { asset_name: string; asset_type_name: string | null; brand: string | null; model: string | null; serial_number: string | null; phone_number: string | null; asset_tag: string }[];
-  assignedAt: string;
+  assets: { asset_name: string; asset_type_name: string | null; brand: string | null; model: string | null; serial_number: string | null; phone_number: string | null; asset_tag: string; condition: string }[];
+  returnedAt: string;
   docNumber: string;
   proposedBy: SignPerson | null;
   endorsedBy: SignPerson | null;
   approvedBy: SignPerson | null;
-  acknowledgedBy: SignPerson;
+  receivedBy: SignPerson;
 }
 
-export default function AcknowledgePdf({
+export default function AcknowledgeReturnPdf({
   employee,
   assets,
-  assignedAt,
+  returnedAt,
   docNumber,
   proposedBy,
   endorsedBy,
   approvedBy,
-  acknowledgedBy,
-}: AcknowledgePdfProps) {
+  receivedBy,
+}: AcknowledgeReturnPdfProps) {
   const approvals: [string, SignPerson | null][] = [
     ["เสนอ", proposedBy],
     ["เห็นชอบ", endorsedBy],
     ["อนุมัติ", approvedBy],
-    ["รับทราบ", acknowledgedBy],
+    ["รับทราบ", receivedBy],
   ];
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>แบบฟอร์มรับทรัพย์สิน (Asset Acknowledgement Form)</Text>
+        <Text style={styles.title}>แบบฟอร์มคืนทรัพย์สิน (Asset Return Form)</Text>
         <Text style={{ marginBottom: 10 }}>เลขที่ {docNumber || "-"}</Text>
 
         <View style={styles.row}>
@@ -136,7 +114,7 @@ export default function AcknowledgePdf({
 
         <View style={styles.divider} />
 
-        <Text style={styles.section}>รายการทรัพย์สินที่ได้รับ</Text>
+        <Text style={styles.section}>รายการทรัพย์สินที่ส่งคืน</Text>
         <View style={styles.tableFrame}>
           <View style={[styles.tr, assets.length > 0 ? styles.rowBorder : {}]}>
             <Text style={[styles.th, styles.colNo]}>ลำดับ{" "}</Text>
@@ -145,9 +123,11 @@ export default function AcknowledgePdf({
             <View style={styles.colDivider} />
             <Text style={styles.th}>ยี่ห้อ/รุ่น</Text>
             <View style={styles.colDivider} />
-            <Text style={styles.th}>Serial Number</Text>
+            <Text style={[styles.th, styles.colSerial]}>Serial Number</Text>
             <View style={styles.colDivider} />
             <Text style={[styles.th, styles.colTag]}>หมายเลข</Text>
+            <View style={styles.colDivider} />
+            <Text style={[styles.th, styles.colCondition]}>สภาพ</Text>
           </View>
           {assets.map((a, i) => (
             <View style={[styles.tr, i < assets.length - 1 ? styles.rowBorder : {}]} key={i}>
@@ -157,32 +137,35 @@ export default function AcknowledgePdf({
               <View style={styles.colDivider} />
               <Text style={styles.td}>{[a.brand, a.model].filter(Boolean).join(" ") || "-"}</Text>
               <View style={styles.colDivider} />
-              <Text style={styles.td}>{a.serial_number ?? "-"}</Text>
+              <Text style={[styles.td, styles.colSerial]}>{a.serial_number ?? "-"}</Text>
               <View style={styles.colDivider} />
               <Text style={[styles.td, styles.colTag]}>{formatPhoneNumber(a.phone_number)}</Text>
+              <View style={styles.colDivider} />
+              <Text style={[styles.td, styles.colCondition]}>{a.condition}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={styles.section}>ข้อกำหนดในการดูแลรักษาทรัพย์สิน </Text>
-        {TERMS.map((t, i) => (
-          <View style={styles.termItem} key={i}>
-            <Text style={styles.termNo}>{i + 1}.</Text>
-            <Text style={styles.termText}>{t}</Text>
-          </View>
-        ))}
-
         <Text style={styles.section}>คำรับรอง{" "}</Text>
         <Text>
-          ข้าพเจ้าขอรับรองว่าจะดูแลรักษาทรัพย์สินของบริษัทฯ ตามข้อกำหนดข้างต้น และจะคืนทรัพย์สินดังกล่าวเมื่อบริษัทฯมีการเรียกคืน
-          หรือเมื่อพ้นสภาพการเป็นพนักงาน{" "}
+          ข้าพเจ้าได้ส่งคืนทรัพย์สินของบริษัทฯ ตามที่ได้รับมอบหมายข้างต้นเรียบร้อยแล้ว และรับทราบว่าบริษัทฯมีสิทธิ์ตรวจสอบและประเมิน
+          สภาพทรัพย์สินที่คืน หากพบความเสียหายที่เกิดจากความประมาทเลินเล่อ
+          ข้าพเจ้ายินดีรับผิดชอบค่าเสียหายตามระเบียบของบริษัทฯ{" "}
         </Text>
 
         <View style={styles.signContainer}>
-          <View style={styles.signBlock}>
-            <Text>ลงชื่อ ................................................. ผู้รับทรัพย์สิน</Text>
-            <Text style={{ marginTop: 4 }}>({employee.name})</Text>
-            <Text style={{ marginTop: 4 }}>วันที่ {formatThaiDate(assignedAt)}</Text>
+          <View style={[styles.signRow, styles.signRowRight]}>
+            <View style={styles.signBlock}>
+              <Text>ลงชื่อ ................................................. ผู้คืนทรัพย์สิน</Text>
+              <Text style={{ alignSelf: "flex-start", marginTop: 8 }}>วันที่   .................................................</Text>
+            </View>
+          </View>
+
+          <View style={[styles.signRow, styles.signRowLeft]}>
+            <View style={styles.signBlock}>
+              <Text>ลงชื่อ ................................................. ผู้รับคืนทรัพย์สิน</Text>
+              <Text style={{ alignSelf: "flex-start", marginTop: 8 }}>วันที่   .................................................</Text>
+            </View>
           </View>
         </View>
 

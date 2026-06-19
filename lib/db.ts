@@ -8,6 +8,8 @@ declare global {
 const sql = globalThis._sql ?? postgres(process.env.DATABASE_URL!, {
   ssl: 'require',
   max: 3,
+  idle_timeout: 20,
+  max_lifetime: 60 * 30,
 });
 
 if (process.env.NODE_ENV !== 'production') globalThis._sql = sql;

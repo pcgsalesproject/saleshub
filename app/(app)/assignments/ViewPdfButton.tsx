@@ -2,30 +2,20 @@
 
 import { useState } from "react";
 import { pdf } from "@react-pdf/renderer";
-import { getDocumentForReprint } from "@/lib/actions/assets";
+import { getDocumentForReprint, getReturnDocumentForReprint } from "@/lib/actions/assets";
 import { ACKNOWLEDGED_BY } from "@/lib/acknowledge";
 import AcknowledgePdf from "./new/AcknowledgePdf";
+import AcknowledgeReturnPdf from "./new/AcknowledgeReturnPdf";
 
-export default function ViewPdfButton({ docNumber }: { docNumber: string }) {
+export default function ViewPdfButton({ docNumber, docType = "receive" }: { docNumber: string; docType?: "receive" | "return" }) {
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleClick() {
     setIsLoading(true);
     try {
-      const doc = await getDocumentForReprint(docNumber);
-
-      const blob = await pdf(
-        <AcknowledgePdf
-          employee={doc.employee}
-          assets={doc.assets}
-          assignedAt={doc.assignedAt}
-          docNumber={doc.docNumber}
-          proposedBy={doc.proposedBy}
-          endorsedBy={doc.endorsedBy}
-          approvedBy={doc.approvedBy}
-          acknowledgedBy={ACKNOWLEDGED_BY}
-        />
-      ).toBlob();
+      const blob = docType === "return"
+        ? await buildReturnPdf(docNumber)
+        : await buildReceivePdf(docNumber);
 
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank");
@@ -34,6 +24,40 @@ export default function ViewPdfButton({ docNumber }: { docNumber: string }) {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function buildReceivePdf(docNumber: string) {
+    const doc = await getDocumentForReprint(docNumber);
+
+    return pdf(
+      <AcknowledgePdf
+        employee={doc.employee}
+        assets={doc.assets}
+        assignedAt={doc.assignedAt}
+        docNumber={doc.docNumber}
+        proposedBy={doc.proposedBy}
+        endorsedBy={doc.endorsedBy}
+        approvedBy={doc.approvedBy}
+        acknowledgedBy={ACKNOWLEDGED_BY}
+      />
+    ).toBlob();
+  }
+
+  async function buildReturnPdf(docNumber: string) {
+    const doc = await getReturnDocumentForReprint(docNumber);
+
+    return pdf(
+      <AcknowledgeReturnPdf
+        employee={doc.employee}
+        assets={doc.assets}
+        returnedAt={doc.returnedAt}
+        docNumber={doc.docNumber}
+        proposedBy={doc.proposedBy}
+        endorsedBy={doc.endorsedBy}
+        approvedBy={doc.approvedBy}
+        receivedBy={ACKNOWLEDGED_BY}
+      />
+    ).toBlob();
   }
 
   return (
