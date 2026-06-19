@@ -73,6 +73,18 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
     setWarrantyExpiry(d.toISOString().slice(0, 10));
   }
 
+  async function downloadQrCode() {
+    const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(assetTag)}&bgcolor=ffffff&color=102E5A&margin=4`;
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `qr_${assetTag}.png`;
+    a.click();
+    URL.revokeObjectURL(blobUrl);
+  }
+
   return (
     <form action={action} className="space-y-8">
 
@@ -185,6 +197,16 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
                   height={80}
                 />
                 <span className="text-xs text-gray-400 tracking-widest font-mono">{assetTag}</span>
+                <button
+                  type="button"
+                  onClick={downloadQrCode}
+                  className="ml-1 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" />
+                  </svg>
+                  บันทึก
+                </button>
               </div>
             ) : (
               <p className="text-sm text-gray-400 mt-2">เลือกประเภทเพื่อสร้าง QR Code</p>
