@@ -116,7 +116,7 @@ export default function AcknowledgeForm({ employees, assets, assetTypes, preview
         a.click();
         URL.revokeObjectURL(url);
 
-        router.push("/assignments");
+        router.push("/asset-records");
       } catch (err) {
         setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด ไม่สามารถบันทึกได้");
       }

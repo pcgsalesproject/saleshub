@@ -30,19 +30,19 @@ const styles = StyleSheet.create({
   colDivider: { width: LINE_W, minWidth: LINE_W, flexShrink: 0, backgroundColor: LINE_C },
   th: { flex: 1, padding: 4, fontWeight: "bold", textAlign: "center", backgroundColor: "#f2f2f2" },
   td: { flex: 1, padding: 4, backgroundColor: "#fff" },
-  colNo: { flex: 0.3, textAlign: "center" },
-  colItem: { flex: 0.65 },
-  colSerial: { flex: 0.85, fontSize: 8 },
-  colTag: { flex: 0.65, textAlign: "center" },
-  colCondition: { flex: 0.4, textAlign: "center" },
+  colNo: { flex: 0.25, textAlign: "center" },
+  colItem: { flex: 0.75 },
+  colBrand: { flex: 1 },
+  colSerial: { flex: 0.95 },
+  colPhoneNum: { flex: 0.7, textAlign: "center" },
 
-  signContainer: { marginTop: 54 },
+  signContainer: { marginTop: 72 },
   signRow: { flexDirection: "row" },
   signRowRight: { justifyContent: "flex-end" },
   signRowLeft: { justifyContent: "flex-start" },
-  signBlock: { alignItems: "center", marginBottom: 24 },
+  signBlock: { alignItems: "center", marginBottom: 36 },
 
-  approvalFrame: { flexDirection: "row", backgroundColor: LINE_C, padding: LINE_W, marginTop: 42 },
+  approvalFrame: { flexDirection: "row", backgroundColor: LINE_C, padding: LINE_W, marginTop: 36 },
   approvalCell: { flex: 1, backgroundColor: "#fff" },
   approvalHead: { textAlign: "center", fontWeight: "bold", padding: 6, backgroundColor: "#f2f2f2", borderBottomWidth: LINE_W, borderBottomColor: LINE_C },
   approvalBody: { padding: 6, minHeight: 70, backgroundColor: "#fff", alignItems: "center", justifyContent: "flex-start" },
@@ -121,13 +121,11 @@ export default function AcknowledgeReturnPdf({
             <View style={styles.colDivider} />
             <Text style={[styles.th, styles.colItem]}>รายการทรัพย์สิน</Text>
             <View style={styles.colDivider} />
-            <Text style={styles.th}>ยี่ห้อ/รุ่น</Text>
+            <Text style={[styles.th, styles.colBrand]}>ยี่ห้อ/รุ่น</Text>
             <View style={styles.colDivider} />
             <Text style={[styles.th, styles.colSerial]}>Serial Number</Text>
             <View style={styles.colDivider} />
-            <Text style={[styles.th, styles.colTag]}>หมายเลข</Text>
-            <View style={styles.colDivider} />
-            <Text style={[styles.th, styles.colCondition]}>สภาพ</Text>
+            <Text style={[styles.th, styles.colPhoneNum]}>หมายเลข</Text>
           </View>
           {assets.map((a, i) => (
             <View style={[styles.tr, i < assets.length - 1 ? styles.rowBorder : {}]} key={i}>
@@ -135,13 +133,11 @@ export default function AcknowledgeReturnPdf({
               <View style={styles.colDivider} />
               <Text style={[styles.td, styles.colItem]}>{a.asset_type_name ?? "-"}</Text>
               <View style={styles.colDivider} />
-              <Text style={styles.td}>{[a.brand, a.model].filter(Boolean).join(" ") || "-"}</Text>
+              <Text style={[styles.td, styles.colBrand]}>{[a.brand, a.model].filter(Boolean).join(" ") || "-"}</Text>
               <View style={styles.colDivider} />
               <Text style={[styles.td, styles.colSerial]}>{a.serial_number ?? "-"}</Text>
               <View style={styles.colDivider} />
-              <Text style={[styles.td, styles.colTag]}>{formatPhoneNumber(a.phone_number)}</Text>
-              <View style={styles.colDivider} />
-              <Text style={[styles.td, styles.colCondition]}>{a.condition}</Text>
+              <Text style={[styles.td, styles.colPhoneNum]}>{formatPhoneNumber(a.phone_number)}</Text>
             </View>
           ))}
         </View>

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import sql from "@/lib/db";
-import ViewPdfButton from "./ViewPdfButton";
 
 interface AssignmentRow {
   id: number;
@@ -15,15 +14,6 @@ interface AssignmentRow {
   department_name: string | null;
   assigned_at: string | null;
   returned_at: string | null;
-}
-
-interface DocumentRow {
-  doc_number: string;
-  doc_type: "receive" | "return";
-  doc_date: string | null;
-  employee_id: number;
-  employee_name: string;
-  department_name: string | null;
 }
 
 async function getAssignments(status: string): Promise<AssignmentRow[]> {
@@ -52,39 +42,6 @@ async function getAssignments(status: string): Promise<AssignmentRow[]> {
   `;
 }
 
-async function getDocuments(): Promise<DocumentRow[]> {
-  return sql<DocumentRow[]>`
-    SELECT * FROM (
-      SELECT DISTINCT ON (aa.doc_number)
-        aa.doc_number, 'receive' AS doc_type,
-        aa.assigned_at AS doc_date,
-        e.id AS employee_id,
-        TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name,
-        d.name AS department_name
-      FROM asset_assignments aa
-      JOIN employees e ON aa.employee_id = e.id
-      LEFT JOIN departments d ON e.department_id = d.id
-      WHERE aa.doc_number IS NOT NULL
-      ORDER BY aa.doc_number, aa.id
-    ) receive_doc
-    UNION ALL
-    SELECT * FROM (
-      SELECT DISTINCT ON (aa.return_doc_number)
-        aa.return_doc_number AS doc_number, 'return' AS doc_type,
-        aa.returned_at AS doc_date,
-        e.id AS employee_id,
-        TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name,
-        d.name AS department_name
-      FROM asset_assignments aa
-      JOIN employees e ON aa.employee_id = e.id
-      LEFT JOIN departments d ON e.department_id = d.id
-      WHERE aa.return_doc_number IS NOT NULL
-      ORDER BY aa.return_doc_number, aa.id
-    ) return_doc
-    ORDER BY doc_date DESC
-  `;
-}
-
 function formatDate(v?: string | null) {
   if (!v) return "—";
   const d = new Date(v);
@@ -92,12 +49,7 @@ function formatDate(v?: string | null) {
 }
 
 export default async function AssignmentsPage(props: PageProps<"/assignments">) {
-  const { status = "active", view = "records" } = await props.searchParams ?? {};
-
-  const viewTabs = [
-    { key: "records", label: "บันทึกทรัพย์สินฝ่ายขาย" },
-    { key: "details", label: "รายละเอียดการรับทรัพย์สิน" },
-  ];
+  const { status = "active" } = await props.searchParams ?? {};
 
   const statusTabs = [
     { key: "active", label: "กำลังใช้งาน" },
@@ -105,113 +57,23 @@ export default async function AssignmentsPage(props: PageProps<"/assignments">) 
     { key: "", label: "ทั้งหมด" },
   ];
 
+  const rows = await getAssignments(String(status));
+
   return (
     <div>
       <Header
         title="Assignments"
         subtitle="Asset Assignment Records"
-        actions={
-          <Link href="/assignments/new" className="btn-primary">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            แบบฟอร์มทรัพย์สิน
-          </Link>
-        }
       />
 
-      {/* View tabs */}
-      <div className="flex items-center gap-1 mb-4 bg-white border border-gray-200 rounded-xl p-1 w-fit">
-        {viewTabs.map((t) => (
-          <Link
-            key={t.key}
-            href={`/assignments?view=${t.key}`}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              String(view) === t.key
-                ? "bg-[#102E5A] text-white"
-                : "text-gray-500 hover:text-gray-800"
-            }`}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </div>
-
-      {view === "details" ? (
-        <AssignmentDetails status={String(status)} statusTabs={statusTabs} />
-      ) : (
-        <DocumentRecords />
-      )}
-    </div>
-  );
-}
-
-async function DocumentRecords() {
-  const documents = await getDocuments();
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-      {documents.length === 0 ? (
-        <p className="text-center text-gray-400 py-16 text-sm">ไม่พบข้อมูล</p>
-      ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-36">วันที่</th>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-40">เลขที่เอกสาร</th>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-36">ประเภท</th>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-54">พนักงาน</th>
-              <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-40">ฝ่าย</th>
-              <th className="px-5 py-3 w-32"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {documents.map((d) => (
-              <tr key={`${d.doc_type}-${d.doc_number}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
-                <td className="px-5 py-3.5 text-gray-600">{formatDate(d.doc_date)}</td>
-                <td className="px-5 py-3.5 font-mono text-gray-800">{d.doc_number}</td>
-                <td className="px-5 py-3.5">
-                  {d.doc_type === "return" ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full px-2.5 py-1">
-                      คืนทรัพย์สิน
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-full px-2.5 py-1">
-                      รับทรัพย์สิน
-                    </span>
-                  )}
-                </td>
-                <td className="px-5 py-3.5">
-                  <Link href={`/employees/${d.employee_id}?tab=assignments`} className="font-medium text-gray-800 hover:text-[#102E5A] hover:underline">
-                    {d.employee_name}
-                  </Link>
-                </td>
-                <td className="px-5 py-3.5 text-gray-600">{d.department_name ?? "—"}</td>
-                <td className="px-5 py-3.5">
-                  <ViewPdfButton docNumber={d.doc_number} docType={d.doc_type} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-async function AssignmentDetails({ status, statusTabs }: { status: string; statusTabs: { key: string; label: string }[] }) {
-  const rows = await getAssignments(status);
-
-  return (
-    <>
       {/* Status tabs */}
       <div className="flex items-center gap-1 mb-4 bg-white border border-gray-200 rounded-xl p-1 w-fit">
         {statusTabs.map((t) => (
           <Link
             key={t.key}
-            href={t.key ? `/assignments?view=details&status=${t.key}` : "/assignments?view=details&status="}
+            href={t.key ? `/assignments?status=${t.key}` : "/assignments?status="}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              status === t.key
+              String(status) === t.key
                 ? "bg-[#102E5A] text-white"
                 : "text-gray-500 hover:text-gray-800"
             }`}
@@ -273,6 +135,6 @@ async function AssignmentDetails({ status, statusTabs }: { status: string; statu
           </table>
         )}
       </div>
-    </>
+    </div>
   );
 }

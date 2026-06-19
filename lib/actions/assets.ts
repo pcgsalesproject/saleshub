@@ -116,6 +116,7 @@ export async function acknowledgeAssets(
   );
 
   revalidatePath("/assignments");
+  revalidatePath("/asset-records");
   return docNumber;
 }
 
@@ -146,6 +147,7 @@ export async function returnAssets(
   );
 
   revalidatePath("/assignments");
+  revalidatePath("/asset-records");
   return docNumber;
 }
 

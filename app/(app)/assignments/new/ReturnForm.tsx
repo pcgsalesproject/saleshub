@@ -123,7 +123,7 @@ export default function ReturnForm({ employees, assignments, previewDocNumber }:
         a.click();
         URL.revokeObjectURL(url);
 
-        router.push("/assignments");
+        router.push("/asset-records");
       } catch (err) {
         setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด ไม่สามารถบันทึกได้");
       }

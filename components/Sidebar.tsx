@@ -42,6 +42,15 @@ const navItems = [
     ),
   },
   {
+    label: "Asset Records",
+    href: "/asset-records",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6M9 8h6M5 4h14a1 1 0 011 1v15a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" />
+      </svg>
+    ),
+  },
+  {
     label: "Asset History",
     href: "/asset-history",
     icon: (

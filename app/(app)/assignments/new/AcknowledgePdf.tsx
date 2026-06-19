@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   td: { flex: 1, padding: 4, backgroundColor: "#fff" },
   colNo: { flex: 0.3, textAlign: "center" },
   colItem: { flex: 0.7 },
-  colTag: { flex: 0.6, textAlign: "center" },
+  colPhoneNum: { flex: 0.6, textAlign: "center" },
 
   termItem: { marginBottom: 3, flexDirection: "row" },
   termNo: { width: 16 },
@@ -147,7 +147,7 @@ export default function AcknowledgePdf({
             <View style={styles.colDivider} />
             <Text style={styles.th}>Serial Number</Text>
             <View style={styles.colDivider} />
-            <Text style={[styles.th, styles.colTag]}>หมายเลข</Text>
+            <Text style={[styles.th, styles.colPhoneNum]}>หมายเลข</Text>
           </View>
           {assets.map((a, i) => (
             <View style={[styles.tr, i < assets.length - 1 ? styles.rowBorder : {}]} key={i}>
@@ -159,7 +159,7 @@ export default function AcknowledgePdf({
               <View style={styles.colDivider} />
               <Text style={styles.td}>{a.serial_number ?? "-"}</Text>
               <View style={styles.colDivider} />
-              <Text style={[styles.td, styles.colTag]}>{formatPhoneNumber(a.phone_number)}</Text>
+              <Text style={[styles.td, styles.colPhoneNum]}>{formatPhoneNumber(a.phone_number)}</Text>
             </View>
           ))}
         </View>
