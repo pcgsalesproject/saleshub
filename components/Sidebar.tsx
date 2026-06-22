@@ -33,6 +33,24 @@ const navItems = [
     ),
   },
   {
+    label: "ตรวจสอบทรัพย์สิน",
+    href: "/inspection/new",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    label: "สรุปผลตรวจสอบ",
+    href: "/inspection/summary",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 14l4-4 3 3 5-6" />
+      </svg>
+    ),
+  },
+  {
     label: "Assignments",
     href: "/assignments",
     icon: (

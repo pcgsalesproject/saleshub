@@ -24,7 +24,7 @@ async function getData(excludeId: number): Promise<{ departments: Department[]; 
     sql<Department[]>`SELECT id, name FROM departments ORDER BY name`,
     sql<Position[]>`SELECT id, position FROM positions ORDER BY position`,
     sql<SalesArea[]>`SELECT id, area_name AS name FROM sales_areas ORDER BY area_name`,
-    sql<EmployeeOption[]>`SELECT id, TRIM(CONCAT(prefix_th, ' ', first_name, ' ', last_name)) AS name FROM employees WHERE id != ${excludeId} ORDER BY first_name`,
+    sql<EmployeeOption[]>`SELECT id, TRIM(CONCAT(prefix_th, ' ', first_name, ' ', last_name)) AS name FROM employees WHERE position_id IN (8, 9, 10, 11) AND id != ${excludeId} ORDER BY first_name`,
   ]);
   return { departments, positions, salesAreas, managers };
 }

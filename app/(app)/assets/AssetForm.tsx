@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Asset, AssetType } from "@/lib/types";
 import SubmitButton from "@/components/SubmitButton";
 
@@ -51,6 +51,10 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
   const [model, setModel] = useState(asset?.model ?? "");
   const assetName = [brand, model].filter(Boolean).join(" ");
 
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const checkUrl = origin && assetTag ? `${origin}/assets/check/${assetTag}` : assetTag;
+
   const [phoneNumber, setPhoneNumber] = useState(asset?.phone_number ?? "");
 
   const [priceDisplay, setPriceDisplay] = useState(
@@ -74,10 +78,31 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
   }
 
   async function downloadQrCode() {
-    const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(assetTag)}&bgcolor=ffffff&color=102E5A&margin=4`;
+    const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(checkUrl)}&bgcolor=ffffff&color=102E5A&margin=4`;
     const res = await fetch(url);
     const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
+    const qrImage = await createImageBitmap(blob);
+
+    const labelHeight = 36;
+    const canvas = document.createElement("canvas");
+    canvas.width = qrImage.width;
+    canvas.height = qrImage.height + labelHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(qrImage, 0, 0);
+    ctx.fillStyle = "#102E5A";
+    ctx.font = "bold 20px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(assetTag, canvas.width / 2, qrImage.height + labelHeight / 2);
+
+    const finalBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!finalBlob) return;
+
+    const blobUrl = URL.createObjectURL(finalBlob);
     const a = document.createElement("a");
     a.href = blobUrl;
     a.download = `qr_${assetTag}.png`;
@@ -188,19 +213,21 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
           <div>
             <Label text="QR Code" />
             {assetTag ? (
-              <div className="flex items-center gap-3 p-2 bg-white border border-gray-200 rounded-lg w-fit">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(assetTag)}&bgcolor=ffffff&color=102E5A&margin=4`}
-                  alt={`QR: ${assetTag}`}
-                  width={80}
-                  height={80}
-                />
-                <span className="text-xs text-gray-400 tracking-widest font-mono">{assetTag}</span>
+              <div className="flex flex-col items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg w-fit">
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(checkUrl)}&bgcolor=ffffff&color=102E5A&margin=4`}
+                    alt={`QR: ${assetTag}`}
+                    width={80}
+                    height={80}
+                  />
+                  <span className="text-xs text-gray-400 tracking-widest font-mono">{assetTag}</span>
+                </div>
                 <button
                   type="button"
                   onClick={downloadQrCode}
-                  className="ml-1 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white hover:bg-gray-50 transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white hover:bg-gray-50 transition-colors w-full"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" />

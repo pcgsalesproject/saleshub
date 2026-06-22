@@ -84,3 +84,12 @@ export interface AssetAssignment {
   returned_at: string | null;
   note: string | null;
 }
+
+export interface AssetCheck {
+  id: number;
+  asset_id: number;
+  checked_by_id: number | null;
+  status: string;
+  comment: string | null;
+  checked_at: string;
+}

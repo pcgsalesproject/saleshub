@@ -97,6 +97,24 @@ CREATE TABLE document_number_sequences (
     last_seq INT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE inspection_sessions (
+    id SERIAL PRIMARY KEY,
+    employee_id INT NOT NULL REFERENCES employees(id),
+    checked_by_id INT REFERENCES employees(id),
+    comment TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE asset_checks (
+    id SERIAL PRIMARY KEY,
+    asset_id INT NOT NULL REFERENCES assets(id),
+    checked_by_id INT REFERENCES employees(id),
+    status VARCHAR NOT NULL DEFAULT 'found',
+    comment TEXT,
+    checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    session_id INT REFERENCES inspection_sessions(id)
+);
+
 -- Seed Data (Optional)
 INSERT INTO departments (name) VALUES 
 ('IT'), ('HR'), ('Finance'), ('Operations'), ('Marketing'), ('Management')
