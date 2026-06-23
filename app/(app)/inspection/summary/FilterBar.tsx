@@ -7,27 +7,29 @@ interface Department {
   name: string;
 }
 
-interface MonthOption {
-  value: string;
-  label: string;
+interface RoundOption {
+  id: number;
+  year: number;
+  name: string;
+  status: "open" | "closed";
 }
 
 interface Props {
   departments: Department[];
-  months: MonthOption[];
+  rounds: RoundOption[];
   departmentId: string;
-  month: string;
+  roundId: string;
 }
 
-export default function FilterBar({ departments, months, departmentId, month }: Props) {
+export default function FilterBar({ departments, rounds, departmentId, roundId }: Props) {
   const router = useRouter();
 
-  function update(next: { departmentId?: string; month?: string }) {
+  function update(next: { departmentId?: string; roundId?: string }) {
     const params = new URLSearchParams();
     const d = next.departmentId ?? departmentId;
-    const m = next.month ?? month;
+    const r = next.roundId ?? roundId;
     if (d) params.set("department_id", d);
-    if (m) params.set("month", m);
+    if (r) params.set("round_id", r);
     router.push(`/inspection/summary${params.toString() ? `?${params}` : ""}`);
   }
 
@@ -43,10 +45,13 @@ export default function FilterBar({ departments, months, departmentId, month }: 
         </select>
       </div>
       <div className="flex items-center gap-2">
-        <label className="text-sm text-gray-500">เดือน</label>
-        <select value={month} onChange={(e) => update({ month: e.target.value })} className="input">
-          {months.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
+        <label className="text-sm text-gray-500">รอบการตรวจสอบ</label>
+        <select value={roundId} onChange={(e) => update({ roundId: e.target.value })} className="input">
+          {rounds.length === 0 && <option value="">ยังไม่มีรอบ</option>}
+          {rounds.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name} ({r.year + 543}){r.status === "open" ? " 🟢" : ""}
+            </option>
           ))}
         </select>
       </div>

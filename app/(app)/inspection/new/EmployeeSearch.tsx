@@ -6,7 +6,7 @@ import { useState } from "react";
 interface Option {
   id: number;
   name: string;
-  employee_id: string;
+  employee_id: string | null;
   email: string | null;
 }
 
@@ -22,7 +22,7 @@ export default function EmployeeSearch({ employees }: Props) {
     const q = search.toLowerCase();
     return (
       e.name.toLowerCase().includes(q) ||
-      e.employee_id.toLowerCase().includes(q) ||
+      (e.employee_id ?? "").toLowerCase().includes(q) ||
       (e.email ?? "").toLowerCase().includes(q)
     );
   });
@@ -57,7 +57,7 @@ export default function EmployeeSearch({ employees }: Props) {
                 className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors"
               >
                 <p className="text-sm font-medium text-gray-800">{e.name}</p>
-                <p className="text-xs text-gray-400">{e.employee_id} · {e.email ?? "—"}</p>
+                <p className="text-xs text-gray-400">{e.employee_id ?? "—"} · {e.email ?? "—"}</p>
               </button>
             </li>
           ))}

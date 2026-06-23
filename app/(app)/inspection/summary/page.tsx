@@ -1,27 +1,12 @@
 import Link from "next/link";
 import sql from "@/lib/db";
 import { getInspectionRows, badgeFor, type InspectionBadge } from "@/lib/inspection";
+import { listRounds } from "@/lib/actions/rounds";
 import FilterBar from "./FilterBar";
 
 interface Department {
   id: number;
   name: string;
-}
-
-const MONTH_NAMES_TH = [
-  "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
-];
-
-function getMonthOptions(count = 12): { value: string; label: string }[] {
-  const now = new Date();
-  const options = [];
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    options.push({ value, label: `${MONTH_NAMES_TH[d.getMonth()]} ${d.getFullYear() + 543}` });
-  }
-  return options;
 }
 
 function getInitials(name: string) {
@@ -47,18 +32,21 @@ async function getDepartments(): Promise<Department[]> {
 }
 
 export default async function InspectionSummaryPage(props: PageProps<"/inspection/summary">) {
-  const { department_id = "", month = "" } = await props.searchParams ?? {};
+  const { department_id = "", round_id = "" } = await props.searchParams ?? {};
   const departmentId = String(department_id);
-  const months = getMonthOptions();
-  const selectedMonth = String(month) || months[0].value;
 
-  const [departments, rows] = await Promise.all([
-    getDepartments(),
-    getInspectionRows(departmentId ? Number(departmentId) : null, selectedMonth),
-  ]);
+  const rounds = await listRounds();
+  const openRound = rounds.find((r) => r.status === "open");
+  const selectedRoundId = String(round_id) || String(openRound?.id ?? rounds[0]?.id ?? "");
+
+  const rows = await getInspectionRows(
+    departmentId ? Number(departmentId) : null,
+    selectedRoundId ? Number(selectedRoundId) : null
+  );
+  const departments = await getDepartments();
 
   const totalEmployees = rows.length;
-  const checkedCount = rows.filter((r) => badgeFor(r) === "ok").length;
+  const checkedCount = rows.filter((r) => badgeFor(r) === "ok" || badgeFor(r) === "problem").length;
   const notCheckedCount = rows.filter((r) => badgeFor(r) === "none").length;
   const damagedAssets = rows.reduce((sum, r) => sum + r.damaged_count, 0);
   const pct = (n: number) => (totalEmployees === 0 ? 0 : Math.round((n / totalEmployees) * 100));
@@ -78,8 +66,14 @@ export default async function InspectionSummaryPage(props: PageProps<"/inspectio
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-gray-800">สรุปผลการตรวจสอบทรัพย์สิน</span>
         <div className="flex items-center gap-2">
+          <Link
+            href="/inspection/rounds"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg px-3.5 py-2 bg-white hover:bg-gray-50 transition-colors"
+          >
+            จัดการรอบการตรวจสอบ
+          </Link>
           <a
-            href={`/inspection/summary/export?department_id=${departmentId}&month=${selectedMonth}`}
+            href={`/inspection/summary/export?department_id=${departmentId}&round_id=${selectedRoundId}`}
             className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg px-3.5 py-2 bg-white hover:bg-gray-50 transition-colors"
           >
             Export
@@ -90,7 +84,7 @@ export default async function InspectionSummaryPage(props: PageProps<"/inspectio
         </div>
       </div>
 
-      <FilterBar departments={departments} months={months} departmentId={departmentId} month={selectedMonth} />
+      <FilterBar departments={departments} rounds={rounds} departmentId={departmentId} roundId={selectedRoundId} />
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4">

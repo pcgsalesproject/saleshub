@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import type { Employee } from "@/lib/types";
 import s from "./page.module.css";
 import { returnAssetFromEmployee } from "@/lib/actions/assets";
+import EmployeeAvatar from "./EmployeeAvatar";
 
 interface AssignedAsset {
   id: number;
@@ -142,7 +143,7 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
       {/* ── Sidebar ── */}
       <aside className={s.sidebar}>
         <div className={s.sidebarTop}>
-          <div className={s.avatar}>{initials}</div>
+          <EmployeeAvatar employeeId={employee.id} photoUrl={employee.photo_url} initials={initials} />
           <p className={s.sidebarName}>{fullName}</p>
           <p className={s.sidebarPosition}>{employee.position_name ?? "—"}</p>
           <span className={employee.is_active ? "badge badge-active" : "badge badge-inactive"}>

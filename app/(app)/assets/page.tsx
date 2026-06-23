@@ -121,8 +121,11 @@ function Pagination({ filters, total }: { filters: Filters; total: number }) {
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, total);
 
-  const pages: number[] = [];
-  for (let p = Math.max(1, page - 1); p <= Math.min(totalPages, page + 1); p++) pages.push(p);
+  const middle = new Set<number>();
+  for (let p = Math.max(1, page - 1); p <= Math.min(totalPages, page + 1); p++) middle.add(p);
+  middle.add(1);
+  middle.add(totalPages);
+  const pages = [...middle].sort((a, b) => a - b);
 
   return (
     <div className={s.pagination}>
@@ -134,17 +137,17 @@ function Pagination({ filters, total }: { filters: Filters; total: number }) {
         >
           ‹
         </Link>
-        {pages[0] > 1 && <span className={s.pageEllipsis}>…</span>}
-        {pages.map((p) => (
-          <Link
-            key={p}
-            href={buildPageHref(filters, p)}
-            className={`${s.pageBtn} ${p === page ? s.pageBtnActive : ""}`}
-          >
-            {p}
-          </Link>
+        {pages.map((p, i) => (
+          <span key={p} style={{ display: "contents" }}>
+            {i > 0 && p - pages[i - 1] > 1 && <span className={s.pageEllipsis}>…</span>}
+            <Link
+              href={buildPageHref(filters, p)}
+              className={`${s.pageBtn} ${p === page ? s.pageBtnActive : ""}`}
+            >
+              {p}
+            </Link>
+          </span>
         ))}
-        {pages[pages.length - 1] < totalPages && <span className={s.pageEllipsis}>…</span>}
         <Link
           href={buildPageHref(filters, page + 1)}
           className={`${s.pageBtn} ${page >= totalPages ? s.pageBtnDisabled : ""}`}
@@ -182,12 +185,20 @@ export default async function AssetsPage(props: PageProps<"/assets">) {
         title="Assets"
         subtitle="IT Asset Management"
         actions={
-          <Link href="/assets/new" className="btn-primary">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            เพิ่มทรัพย์สิน
-          </Link>
+          <>
+            <Link
+              href="/assets/import"
+              className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg px-3.5 py-2 bg-white hover:bg-gray-50 transition-colors"
+            >
+              นำเข้าทรัพย์สิน
+            </Link>
+            <Link href="/assets/new" className="btn-primary">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              เพิ่มทรัพย์สิน
+            </Link>
+          </>
         }
       />
 

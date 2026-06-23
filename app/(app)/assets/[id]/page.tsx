@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import sql from "@/lib/db";
 import type { Asset } from "@/lib/types";
 import { returnAsset } from "@/lib/actions/assets";
+import AssetTagField from "./AssetTagField";
 
 interface AssignmentRow {
   id: number;
@@ -124,7 +125,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
             <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
             ข้อมูลทรัพย์สิน
           </h2>
-          <Field label="Asset Tag" value={asset.asset_tag} />
+          <AssetTagField assetId={asset.id} assetTag={asset.asset_tag} />
           <Field label="รหัสทรัพย์สิน (บัญชี)" value={asset.asset_code} />
           <Field label="ชื่อทรัพย์สิน" value={asset.asset_name} />
           <Field label="ประเภท" value={asset.asset_type_name} />

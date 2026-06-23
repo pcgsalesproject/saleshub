@@ -50,14 +50,17 @@ async function getDepartments(): Promise<Department[]> {
   return sql<Department[]>`SELECT id, name FROM departments ORDER BY name`;
 }
 
-function Initials({ name }: { name: string }) {
+function Avatar({ name, photoUrl }: { name: string; photoUrl: string | null }) {
   const parts = name.trim().split(" ");
   const letters = parts.length >= 2
     ? parts[0][0] + parts[parts.length - 1][0]
     : parts[0].slice(0, 2);
   return (
-    <div className={s.avatar}>
-      {letters.toUpperCase()}
+    <div
+      className={s.avatar}
+      style={photoUrl ? { backgroundImage: `url(${photoUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+    >
+      {!photoUrl && letters.toUpperCase()}
     </div>
   );
 }
@@ -116,7 +119,7 @@ export default async function EmployeesPage(props: PageProps<"/employees">) {
               <Link key={emp.id} href={`/employees/${emp.id}`} className={s.card}>
                 {/* Centered: avatar, name, position, badge */}
                 <div className={s.cardTop}>
-                  <Initials name={`${emp.first_name} ${emp.last_name}`} />
+                  <Avatar name={`${emp.first_name} ${emp.last_name}`} photoUrl={emp.photo_url} />
                   <p className={s.name}>{fullName}</p>
                   <p className={s.position}>{emp.position_name ?? "—"}</p>
                   <span className={emp.is_active ? "badge badge-active" : "badge badge-inactive"}>

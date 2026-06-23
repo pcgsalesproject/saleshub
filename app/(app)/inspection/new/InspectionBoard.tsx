@@ -7,7 +7,7 @@ import { createAssetChecksBatch } from "@/lib/actions/checks";
 export interface EmployeeDetail {
   id: number;
   name: string;
-  employee_id: string;
+  employee_id: string | null;
   position_name: string | null;
   department_name: string | null;
   sales_area_name: string | null;
@@ -70,6 +70,7 @@ export default function InspectionBoard({ employee, assets }: Props) {
   const [overallComment, setOverallComment] = useState("");
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const total = assets.length;
   const checkedCount = assets.filter((a) => rows[a.id]?.status).length;
@@ -94,7 +95,8 @@ export default function InspectionBoard({ employee, assets }: Props) {
   async function handleSave() {
     if (!allFilled) return;
     setPending(true);
-    await createAssetChecksBatch(
+    setError(null);
+    const result = await createAssetChecksBatch(
       employee.id,
       overallComment || null,
       assets.map((a) => ({
@@ -104,6 +106,10 @@ export default function InspectionBoard({ employee, assets }: Props) {
       }))
     );
     setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
     setSaved(true);
     router.refresh();
   }
@@ -117,6 +123,12 @@ export default function InspectionBoard({ employee, assets }: Props) {
         </div>
       )}
 
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+          {error}
+        </div>
+      )}
+
       {/* Employee card */}
       <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center gap-4">
@@ -127,7 +139,7 @@ export default function InspectionBoard({ employee, assets }: Props) {
             <div className="flex items-center gap-2">
               <p className="text-base font-semibold text-gray-800">{employee.name}</p>
               <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-                {employee.employee_id}
+                {employee.employee_id ?? "—"}
               </span>
             </div>
             <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">

@@ -1,13 +1,15 @@
 import Link from "next/link";
 import sql from "@/lib/db";
 import Header from "@/components/Header";
+import { getOpenRound } from "@/lib/actions/rounds";
 import EmployeeSearch from "./EmployeeSearch";
+import RoundBanner from "./RoundBanner";
 import InspectionBoard, { type AssignedAsset, type EmployeeDetail } from "./InspectionBoard";
 
 interface EmployeeOption {
   id: number;
   name: string;
-  employee_id: string;
+  employee_id: string | null;
   email: string | null;
 }
 
@@ -51,10 +53,13 @@ export default async function NewInspectionPage(props: PageProps<"/inspection/ne
   const { employee_id = "" } = await props.searchParams ?? {};
   const employeeId = String(employee_id);
 
-  const employees = await getEmployees();
-  const [employeeDetail, assignedAssets] = employeeId
-    ? await Promise.all([getEmployeeDetail(Number(employeeId)), getAssignedAssets(Number(employeeId))])
-    : [null, []];
+  const [employees, openRound, [employeeDetail, assignedAssets]] = await Promise.all([
+    getEmployees(),
+    getOpenRound(),
+    employeeId
+      ? Promise.all([getEmployeeDetail(Number(employeeId)), getAssignedAssets(Number(employeeId))])
+      : Promise.resolve([null, []] as [EmployeeDetail | null, AssignedAsset[]]),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,6 +75,8 @@ export default async function NewInspectionPage(props: PageProps<"/inspection/ne
           </Link>
         }
       />
+
+      <RoundBanner round={openRound} />
 
       <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4">
         <div className="flex items-center gap-3 w-full">

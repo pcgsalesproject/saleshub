@@ -16,9 +16,9 @@ function csvEscape(value: string) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const departmentId = searchParams.get("department_id");
-  const month = searchParams.get("month") || new Date().toISOString().slice(0, 7);
+  const roundId = searchParams.get("round_id");
 
-  const rows = await getInspectionRows(departmentId ? Number(departmentId) : null, month);
+  const rows = await getInspectionRows(departmentId ? Number(departmentId) : null, roundId ? Number(roundId) : null);
 
   const header = ["รหัสพนักงาน", "ชื่อ-นามสกุล", "ตำแหน่ง", "ฝ่าย", "สถานะ", "พบ", "เสียหาย", "ไม่พบ", "วันที่ตรวจล่าสุด"];
   const lines = [header.join(",")];
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="inspection_${month}.csv"`,
+      "Content-Disposition": `attachment; filename="inspection_round_${roundId ?? "none"}.csv"`,
     },
   });
 }

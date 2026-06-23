@@ -5,7 +5,7 @@ import SubmitButton from "@/components/SubmitButton";
 
 interface Employee {
   id: number;
-  employee_id: string;
+  employee_id: string | null;
   name: string;
   department_name: string | null;
   position_name: string | null;
@@ -24,7 +24,7 @@ export default function AssignForm({ action, employees }: Props) {
     const q = search.toLowerCase();
     return (
       e.name.toLowerCase().includes(q) ||
-      e.employee_id.toLowerCase().includes(q) ||
+      (e.employee_id ?? "").toLowerCase().includes(q) ||
       (e.department_name ?? "").toLowerCase().includes(q)
     );
   });
@@ -43,7 +43,7 @@ export default function AssignForm({ action, employees }: Props) {
           <div className="flex items-center justify-between p-3 border border-[#102E5A] rounded-lg bg-[#f5f8ff]">
             <div>
               <p className="text-sm font-semibold text-gray-800">{selected.name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{selected.employee_id} · {selected.department_name ?? "—"}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{selected.employee_id ?? "—"} · {selected.department_name ?? "—"}</p>
             </div>
             <button
               type="button"
@@ -73,7 +73,7 @@ export default function AssignForm({ action, employees }: Props) {
                       className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors"
                     >
                       <p className="text-sm font-medium text-gray-800">{e.name}</p>
-                      <p className="text-xs text-gray-400">{e.employee_id} · {e.department_name ?? "—"} · {e.position_name ?? "—"}</p>
+                      <p className="text-xs text-gray-400">{e.employee_id ?? "—"} · {e.department_name ?? "—"} · {e.position_name ?? "—"}</p>
                     </button>
                   </li>
                 ))}

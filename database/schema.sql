@@ -42,6 +42,7 @@ CREATE TABLE employees (
     position_id INT REFERENCES positions(id),
     sales_area_id INT REFERENCES sales_areas(id),
     manager_id INT REFERENCES employees(id),
+    photo_url TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -55,6 +56,7 @@ CREATE TABLE asset_types (
 
 CREATE TABLE assets (
     id SERIAL PRIMARY KEY,
+    asset_tag VARCHAR NOT NULL UNIQUE,
     asset_code VARCHAR UNIQUE,
     asset_name VARCHAR NOT NULL,
     asset_type_id INT REFERENCES asset_types(id),
@@ -97,6 +99,18 @@ CREATE TABLE document_number_sequences (
     last_seq INT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE inspection_rounds (
+    id SERIAL PRIMARY KEY,
+    year INT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    status VARCHAR NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    closed_at TIMESTAMPTZ
+);
+
+-- Only one round can be open at a time
+CREATE UNIQUE INDEX inspection_rounds_one_open_idx ON inspection_rounds (status) WHERE status = 'open';
+
 CREATE TABLE inspection_sessions (
     id SERIAL PRIMARY KEY,
     employee_id INT NOT NULL REFERENCES employees(id),
@@ -112,7 +126,8 @@ CREATE TABLE asset_checks (
     status VARCHAR NOT NULL DEFAULT 'found',
     comment TEXT,
     checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    session_id INT REFERENCES inspection_sessions(id)
+    session_id INT REFERENCES inspection_sessions(id),
+    round_id INT REFERENCES inspection_rounds(id)
 );
 
 -- Seed Data (Optional)

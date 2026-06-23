@@ -7,7 +7,7 @@ import ReturnForm from "./ReturnForm";
 
 interface EmployeeOption {
   id: number;
-  employee_id: string;
+  employee_id: string | null;
   name: string;
   department_name: string | null;
   position_name: string | null;

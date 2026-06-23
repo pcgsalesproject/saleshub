@@ -3,6 +3,39 @@
 import sql from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+const PHOTO_BUCKET = "employee-photos";
+
+export async function uploadEmployeePhoto(
+  employeeId: number,
+  formData: FormData
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const file = formData.get("photo") as File | null;
+  if (!file || file.size === 0) return { ok: false, error: "กรุณาเลือกไฟล์รูปภาพ" };
+  if (!file.type.startsWith("image/")) return { ok: false, error: "รองรับเฉพาะไฟล์รูปภาพ" };
+  if (file.size > 5 * 1024 * 1024) return { ok: false, error: "ไฟล์ต้องมีขนาดไม่เกิน 5MB" };
+
+  const supabase = await createClient();
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${employeeId}/${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
+    contentType: file.type,
+  });
+  if (uploadError) {
+    console.error("Failed to upload employee photo:", uploadError);
+    return { ok: false, error: "อัปโหลดรูปภาพไม่สำเร็จ กรุณาลองใหม่" };
+  }
+
+  const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+
+  await sql`UPDATE employees SET photo_url = ${data.publicUrl} WHERE id = ${employeeId}`;
+
+  revalidatePath(`/employees/${employeeId}`);
+  revalidatePath("/employees");
+  return { ok: true, url: data.publicUrl };
+}
 
 function extractFields(formData: FormData) {
   const deptRaw    = formData.get("department_id") as string;

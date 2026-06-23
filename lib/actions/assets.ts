@@ -4,6 +4,42 @@ import sql from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+const RANDOM_TAG_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
+
+function randomTagSuffix(length = 4): string {
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += RANDOM_TAG_CHARS[Math.floor(Math.random() * RANDOM_TAG_CHARS.length)];
+  }
+  return out;
+}
+
+async function generateUniqueAssetTag(typeId: number | null): Promise<string> {
+  const prefix = `A${typeId ?? 0}`;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const tag = `${prefix}${randomTagSuffix()}`;
+    const existing = await sql<{ id: number }[]>`SELECT id FROM assets WHERE asset_tag = ${tag} LIMIT 1`;
+    if (existing.length === 0) return tag;
+  }
+  throw new Error("ไม่สามารถสร้างรหัสทรัพย์สินที่ไม่ซ้ำได้ กรุณาลองใหม่");
+}
+
+export async function regenerateAssetTag(assetId: number): Promise<{ ok: true; tag: string } | { ok: false; error: string }> {
+  const rows = await sql<{ asset_type_id: number | null }[]>`SELECT asset_type_id FROM assets WHERE id = ${assetId}`;
+  if (rows.length === 0) return { ok: false, error: "ไม่พบทรัพย์สิน" };
+
+  try {
+    const tag = await generateUniqueAssetTag(rows[0].asset_type_id);
+    await sql`UPDATE assets SET asset_tag = ${tag}, updated_at = NOW() WHERE id = ${assetId}`;
+    revalidatePath(`/assets/${assetId}`);
+    revalidatePath("/assets");
+    return { ok: true, tag };
+  } catch (error) {
+    console.error("Failed to regenerate asset tag:", error);
+    return { ok: false, error: "สร้างรหัสทรัพย์สินใหม่ไม่สำเร็จ กรุณาลองใหม่" };
+  }
+}
+
 function extractFields(formData: FormData) {
   const typeRaw = formData.get("asset_type_id") as string;
 
@@ -372,6 +408,124 @@ export async function returnAssetFromEmployee(assignmentId: number, employeeId: 
 
   revalidatePath(`/employees/${employeeId}`);
   redirect(`/employees/${employeeId}?tab=assignments`);
+}
+
+interface ImportRow {
+  asset_type_id: number | null;
+  asset_code: string | null;
+  brand: string | null;
+  model: string | null;
+  serial_number: string | null;
+  purchase_date: string | null;
+  warranty_conditions: string | null;
+  duplicateCount: number;
+}
+
+export interface ImportResult {
+  totalRows: number;
+  blankSkipped: number;
+  mergedDuplicates: number;
+  inserted: number;
+  errors: string[];
+}
+
+function cleanField(v: string | undefined): string | null {
+  const trimmed = (v ?? "").trim();
+  if (!trimmed || trimmed === "#REF!") return null;
+  return trimmed;
+}
+
+export async function importAssets(csvText: string): Promise<ImportResult> {
+  const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const dataLines = lines.slice(1); // drop header
+
+  const parsed: ImportRow[] = [];
+  let blankSkipped = 0;
+
+  for (const line of dataLines) {
+    const cells = line.split(",");
+    const asset_type_id_raw = cleanField(cells[0]);
+    const asset_code = cleanField(cells[1]);
+    const brand = cleanField(cells[3]);
+    const model = cleanField(cells[4]);
+    const serial_number = cleanField(cells[5]);
+    const purchase_date = cleanField(cells[6]);
+    const warranty_conditions = cleanField(cells[7]);
+
+    if (!asset_type_id_raw && !asset_code && !brand && !model && !serial_number && !purchase_date && !warranty_conditions) {
+      blankSkipped++;
+      continue;
+    }
+
+    parsed.push({
+      asset_type_id: asset_type_id_raw ? Number(asset_type_id_raw) : null,
+      asset_code,
+      brand,
+      model,
+      serial_number,
+      purchase_date,
+      warranty_conditions,
+      duplicateCount: 1,
+    });
+  }
+
+  // Merge rows that share the same non-null serial number
+  const bySerial = new Map<string, ImportRow>();
+  const merged: ImportRow[] = [];
+  for (const row of parsed) {
+    if (row.serial_number) {
+      const existing = bySerial.get(row.serial_number);
+      if (existing) {
+        existing.duplicateCount++;
+        continue;
+      }
+      bySerial.set(row.serial_number, row);
+    }
+    merged.push(row);
+  }
+  const mergedDuplicates = parsed.length - merged.length;
+
+  const assetTypes = await sql<{ id: number; code: string; name: string }[]>`SELECT id, code, name FROM asset_types`;
+  const typeById = new Map(assetTypes.map((t) => [t.id, t]));
+
+  const errors: string[] = [];
+  let inserted = 0;
+
+  for (const row of merged) {
+    const type = row.asset_type_id ? typeById.get(row.asset_type_id) : undefined;
+    const assetTag = await generateUniqueAssetTag(row.asset_type_id);
+
+    const assetName = [row.brand, row.model].filter(Boolean).join(" ") || type?.name || "ไม่ระบุชื่อ";
+    const note = row.duplicateCount > 1
+      ? `นำเข้าซ้ำ ${row.duplicateCount} รายการ (serial ซ้ำในไฟล์ต้นฉบับ)`
+      : null;
+
+    try {
+      await sql`
+        INSERT INTO assets
+          (asset_tag, asset_code, asset_name, asset_type_id, brand, model, serial_number,
+           purchase_date, warranty_conditions, status, note)
+        VALUES (
+          ${assetTag}, ${row.asset_code}, ${assetName}, ${row.asset_type_id}, ${row.brand}, ${row.model}, ${row.serial_number},
+          ${row.purchase_date}, ${row.warranty_conditions}, 'available', ${note}
+        )
+      `;
+      inserted++;
+    } catch (error) {
+      console.error("Failed to import asset row:", error);
+      errors.push(`แถว serial=${row.serial_number ?? "—"} brand=${row.brand ?? "—"} model=${row.model ?? "—"}: นำเข้าไม่สำเร็จ`);
+    }
+  }
+
+  revalidatePath("/assets");
+
+  return {
+    totalRows: dataLines.length,
+    blankSkipped,
+    mergedDuplicates,
+    inserted,
+    errors,
+  };
 }
 
 export async function updateAsset(id: number, formData: FormData) {

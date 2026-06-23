@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Asset, AssetType } from "@/lib/types";
 import SubmitButton from "@/components/SubmitButton";
+import { regenerateAssetTag } from "@/lib/actions/assets";
 
 interface Props {
   action: (formData: FormData) => Promise<void>;
@@ -32,10 +33,14 @@ function Label({ text, required }: { text: string; required?: boolean }) {
 
 const inputCls = "input";
 
-function generateAssetTag(typeCode: string) {
-  const year = new Date().getFullYear();
-  const random = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${typeCode}${year}${random}`;
+const RANDOM_TAG_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
+
+function generateAssetTag(typeId: string) {
+  let suffix = "";
+  for (let i = 0; i < 4; i++) {
+    suffix += RANDOM_TAG_CHARS[Math.floor(Math.random() * RANDOM_TAG_CHARS.length)];
+  }
+  return `A${typeId}${suffix}`;
 }
 
 function formatPhoneNumber(value: string) {
@@ -47,6 +52,9 @@ function formatPhoneNumber(value: string) {
 
 export default function AssetForm({ action, assetTypes, asset }: Props) {
   const [assetTag, setAssetTag] = useState(asset?.asset_tag ?? "");
+  const [assetTypeId, setAssetTypeId] = useState(asset?.asset_type_id ? String(asset.asset_type_id) : "");
+  const [regenPending, setRegenPending] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
   const [brand, setBrand] = useState(asset?.brand ?? "");
   const [model, setModel] = useState(asset?.model ?? "");
   const assetName = [brand, model].filter(Boolean).join(" ");
@@ -75,6 +83,25 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
     const d = new Date(date);
     d.setFullYear(d.getFullYear() + Number(years));
     setWarrantyExpiry(d.toISOString().slice(0, 10));
+  }
+
+  async function handleRegenerateTag() {
+    if (!assetTypeId) return;
+    setRegenError(null);
+
+    if (asset) {
+      if (!confirm("ต้องการสร้างรหัสทรัพย์สิน (Asset Tag) ใหม่หรือไม่? รหัสเดิมจะใช้ไม่ได้อีก")) return;
+      setRegenPending(true);
+      const result = await regenerateAssetTag(asset.id);
+      setRegenPending(false);
+      if (!result.ok) {
+        setRegenError(result.error);
+        return;
+      }
+      setAssetTag(result.tag);
+    } else {
+      setAssetTag(generateAssetTag(assetTypeId));
+    }
   }
 
   async function downloadQrCode() {
@@ -123,13 +150,11 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
             <Label text="ประเภท" required />
             <select
               name="asset_type_id"
-              defaultValue={asset?.asset_type_id ?? ""}
+              value={assetTypeId}
               className={inputCls}
               onChange={(e) => {
-                if (!assetTag) {
-                  const selected = assetTypes.find((t) => String(t.id) === e.target.value);
-                  if (selected) setAssetTag(generateAssetTag(selected.code));
-                }
+                setAssetTypeId(e.target.value);
+                if (!assetTag && e.target.value) setAssetTag(generateAssetTag(e.target.value));
               }}
             >
               <option value="">- เลือกประเภท -</option>
@@ -194,12 +219,24 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
           </div>
           <div>
             <Label text="Asset Tag" />
-            <input
-              name="asset_tag"
-              value={assetTag}
-              readOnly
-              className={`${inputCls} bg-gray-50 text-gray-500`}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                name="asset_tag"
+                value={assetTag}
+                readOnly
+                className={`${inputCls} bg-gray-50 text-gray-500`}
+              />
+              <button
+                type="button"
+                onClick={handleRegenerateTag}
+                disabled={regenPending || !assetTypeId}
+                title="สร้างรหัสทรัพย์สินใหม่"
+                className="flex-shrink-0 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg px-2 py-2 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              >
+                {regenPending ? "…" : "↻"}
+              </button>
+            </div>
+            {regenError && <p className="text-xs text-red-600 mt-1">{regenError}</p>}
           </div>
           <div>
             <Label text="รหัสทรัพย์สิน (บัญชี)" />

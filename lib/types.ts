@@ -36,6 +36,7 @@ export interface Employee {
   sales_area_name: string | null;
   manager_id: number | null;
   manager_name: string | null;
+  photo_url: string | null;
   start_date: string | null;
   is_active: boolean;
   created_at: string;

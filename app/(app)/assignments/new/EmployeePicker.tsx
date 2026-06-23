@@ -4,7 +4,7 @@ import { useState } from "react";
 
 interface Employee {
   id: number;
-  employee_id: string;
+  employee_id: string | null;
   name: string;
   department_name: string | null;
   position_name: string | null;
@@ -24,7 +24,7 @@ export default function EmployeePicker({ employees, value, onChange, placeholder
     const q = search.toLowerCase();
     return (
       e.name.toLowerCase().includes(q) ||
-      e.employee_id.toLowerCase().includes(q) ||
+      (e.employee_id ?? "").toLowerCase().includes(q) ||
       (e.department_name ?? "").toLowerCase().includes(q)
     );
   });
@@ -64,7 +64,7 @@ export default function EmployeePicker({ employees, value, onChange, placeholder
                 className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors"
               >
                 <p className="text-sm font-medium text-gray-800">{e.name}</p>
-                <p className="text-xs text-gray-400">{e.employee_id} · {e.department_name ?? "—"} · {e.position_name ?? "—"}</p>
+                <p className="text-xs text-gray-400">{e.employee_id ?? "—"} · {e.department_name ?? "—"} · {e.position_name ?? "—"}</p>
               </button>
             </li>
           ))}

@@ -24,38 +24,29 @@ export function badgeFor(row: InspectionRow): InspectionBadge {
   return "ok";
 }
 
-export function monthRange(month: string): { start: Date; end: Date } {
-  const [y, m] = month.split("-").map(Number);
-  const start = new Date(y, m - 1, 1);
-  const end = new Date(y, m, 1);
-  return { start, end };
-}
-
-export async function getInspectionRows(departmentId: number | null, month: string): Promise<InspectionRow[]> {
-  const { start, end } = monthRange(month);
-
+export async function getInspectionRows(departmentId: number | null, roundId: number | null): Promise<InspectionRow[]> {
   return sql<InspectionRow[]>`
     WITH employee_assets AS (
       SELECT e.id AS employee_id, aa.asset_id
       FROM employees e
-      JOIN asset_assignments aa ON aa.employee_id = e.id AND aa.returned_at IS NULL
+      LEFT JOIN asset_assignments aa ON aa.employee_id = e.id AND aa.returned_at IS NULL
       WHERE e.is_active = true
         AND (${departmentId}::int IS NULL OR e.department_id = ${departmentId})
     ),
     totals AS (
-      SELECT employee_id, COUNT(*) AS total_assets
+      SELECT employee_id, COUNT(asset_id) AS total_assets
       FROM employee_assets
       GROUP BY employee_id
     ),
-    month_checks AS (
+    year_checks AS (
       SELECT ea.employee_id, ac.asset_id, ac.status, ac.checked_at
       FROM employee_assets ea
       JOIN asset_checks ac ON ac.asset_id = ea.asset_id
-      WHERE ac.checked_at >= ${start} AND ac.checked_at < ${end}
+      WHERE ac.round_id = ${roundId}
     ),
     latest_per_asset AS (
       SELECT DISTINCT ON (employee_id, asset_id) employee_id, asset_id, status, checked_at
-      FROM month_checks
+      FROM year_checks
       ORDER BY employee_id, asset_id, checked_at DESC
     ),
     agg AS (
