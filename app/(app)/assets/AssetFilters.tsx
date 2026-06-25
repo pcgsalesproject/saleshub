@@ -34,7 +34,7 @@ export default function AssetFilters({ assetTypes, defaultSearch, defaultType, d
         <input
           name="search"
           defaultValue={defaultSearch}
-          placeholder="Search by asset tag, code, name, serial number…"
+          placeholder="Search by asset tag, code, name, serial number, phone…"
           className={s.searchInput}
         />
       </div>

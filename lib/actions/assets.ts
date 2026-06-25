@@ -87,6 +87,18 @@ export async function createAsset(formData: FormData) {
   redirect("/assets");
 }
 
+export async function deleteAsset(assetId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await sql`DELETE FROM assets WHERE id = ${assetId}`;
+  } catch (error) {
+    console.error("Failed to delete asset:", error);
+    return { ok: false, error: "ไม่สามารถลบทรัพย์สินนี้ได้ เนื่องจากมีประวัติการมอบหมายหรือตรวจสอบอยู่" };
+  }
+
+  revalidatePath("/assets");
+  return { ok: true };
+}
+
 export async function assignAsset(assetId: number, formData: FormData) {
   const employeeId = Number(formData.get("employee_id"));
   const assignedAt = (formData.get("assigned_at") as string) || new Date().toISOString().slice(0, 10);
