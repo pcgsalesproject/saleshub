@@ -88,7 +88,7 @@ interface SignPerson {
 }
 
 export interface AcknowledgePdfProps {
-  employee: { employee_id: string; name: string; position_name: string | null; department_name: string | null };
+  employee: { employee_id: string | null; name: string; position_name: string | null; department_name: string | null };
   assets: { asset_name: string; asset_type_name: string | null; brand: string | null; model: string | null; serial_number: string | null; phone_number: string | null; asset_tag: string }[];
   assignedAt: string;
   docNumber: string;
@@ -125,7 +125,7 @@ export default function AcknowledgePdf({
           <Text style={styles.label}>ชื่อ - นามสกุล</Text>
           <Text style={styles.value}>{employee.name}</Text>
           <Text style={styles.labelGap}>รหัสพนักงาน</Text>
-          <Text style={styles.valueGap}>{employee.employee_id}</Text>
+          <Text style={styles.valueGap}>{employee.employee_id ?? "-"}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>ตำแหน่ง </Text>
