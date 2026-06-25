@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "IT Asset Tracker",
-    short_name: "IT Asset",
+    name: "Sales Hub",
+    short_name: "Sales Hub",
     description: "Employee & IT Asset Tracking System",
     start_url: "/",
     display: "standalone",
@@ -23,3 +23,4 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
   };
 }
+

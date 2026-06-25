@@ -6,7 +6,7 @@ import { RegisterServiceWorker } from "./register-sw";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export const metadata: Metadata = {
-  title: "IT Asset Tracker",
+  title: "Sales Hub",
   description: "Employee & IT Asset Tracking System",
   appleWebApp: {
     capable: true,

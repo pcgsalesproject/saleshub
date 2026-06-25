@@ -73,15 +73,21 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
   const [purchaseDate, setPurchaseDate] = useState(
     asset?.purchase_date ? new Date(asset.purchase_date).toISOString().slice(0, 10) : ""
   );
-  const [usefulYears, setUsefulYears] = useState("");
+  const [warrantyConditions, setWarrantyConditions] = useState(asset?.warranty_conditions ?? "");
   const [warrantyExpiry, setWarrantyExpiry] = useState(
     asset?.warranty_expiry ? new Date(asset.warranty_expiry).toISOString().slice(0, 10) : ""
   );
 
-  function calcExpiry(date: string, years: string) {
+  function parseWarrantyYears(text: string) {
+    return text.match(/\d+/)?.[0] ?? "";
+  }
+
+  function calcExpiry(date: string, conditions: string) {
+    const years = parseWarrantyYears(conditions);
     if (!date || !years) return;
     const d = new Date(date);
     d.setFullYear(d.getFullYear() + Number(years));
+    d.setDate(d.getDate() - 1);
     setWarrantyExpiry(d.toISOString().slice(0, 10));
   }
 
@@ -322,13 +328,17 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
             <Label text="เงื่อนไขการรับประกัน" />
             <input
               name="warranty_conditions"
-              defaultValue={asset?.warranty_conditions ?? ""}
+              value={warrantyConditions}
+              onChange={(e) => {
+                setWarrantyConditions(e.target.value);
+                calcExpiry(purchaseDate, e.target.value);
+              }}
               placeholder="เช่น 3 ปี onsite"
               className={inputCls}
             />
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-5 mb-5">
+        <div className="grid grid-cols-3 gap-5 mb-5">
           <div>
             <Label text="สถานะ" />
             <select
@@ -348,23 +358,8 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
               value={purchaseDate}
               onChange={(e) => {
                 setPurchaseDate(e.target.value);
-                calcExpiry(e.target.value, usefulYears);
+                calcExpiry(e.target.value, warrantyConditions);
               }}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <Label text="อายุการใช้งาน (ปี)" />
-            <input
-              type="number"
-              name="useful_years"
-              value={usefulYears}
-              onChange={(e) => {
-                setUsefulYears(e.target.value);
-                calcExpiry(purchaseDate, e.target.value);
-              }}
-              placeholder="เช่น 3"
-              min="1"
               className={inputCls}
             />
           </div>
@@ -375,7 +370,7 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
               name="warranty_expiry"
               value={warrantyExpiry}
               onChange={(e) => setWarrantyExpiry(e.target.value)}
-              className={`${inputCls} ${usefulYears ? "bg-gray-50 text-gray-500" : ""}`}
+              className={`${inputCls} ${parseWarrantyYears(warrantyConditions) ? "bg-gray-50 text-gray-500" : ""}`}
             />
           </div>
         </div>

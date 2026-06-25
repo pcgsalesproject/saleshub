@@ -5,6 +5,7 @@ import type { Employee } from "@/lib/types";
 import s from "./page.module.css";
 import { returnAssetFromEmployee } from "@/lib/actions/assets";
 import EmployeeAvatar from "./EmployeeAvatar";
+import CopyableField from "./CopyableField";
 
 interface AssignedAsset {
   id: number;
@@ -53,7 +54,7 @@ function formatPhone(v?: string | null) {
 function formatNationalId(v?: string | null) {
   const d = (v ?? "").replace(/\D/g, "");
   if (d.length !== 13) return v;
-  return `${d[0]}-${d.slice(1, 5)}-•••••-${d.slice(10, 12)}-${d[12]}`;
+  return `${d[0]}-${d.slice(1, 5)}-${d.slice(5, 10)}-${d.slice(10, 12)}-${d[12]}`;
 }
 
 function formatDate(v?: string | Date | null) {
@@ -204,7 +205,7 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
               <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลส่วนตัว</h2>
               <FieldRow label="ชื่อ-นามสกุล" value={fullName} />
               <FieldRow label="Name (English)" value={fullNameEn} />
-              <FieldRow label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
+              <CopyableField label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
               <FieldRow label="วันเกิด" value={formatDate(employee.date_of_birth)} />
               <FieldRow label="อายุ" value={age !== null ? `${age} ปี` : undefined} />
             </div>

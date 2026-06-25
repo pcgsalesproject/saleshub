@@ -45,12 +45,12 @@ export default function FilterBar({ departments, rounds, departmentId, roundId }
         </select>
       </div>
       <div className="flex items-center gap-2">
-        <label className="text-sm text-gray-500">รอบการตรวจสอบ</label>
-        <select value={roundId} onChange={(e) => update({ roundId: e.target.value })} className="input">
+        <label className="text-sm text-gray-500 whitespace-nowrap">รอบการตรวจสอบ</label>
+        <select value={roundId} onChange={(e) => update({ roundId: e.target.value })} className="input min-w-[20rem]">
           {rounds.length === 0 && <option value="">ยังไม่มีรอบ</option>}
           {rounds.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.name} ({r.year + 543}){r.status === "open" ? " 🟢" : ""}
+              {r.name} ({r.year + 543})
             </option>
           ))}
         </select>

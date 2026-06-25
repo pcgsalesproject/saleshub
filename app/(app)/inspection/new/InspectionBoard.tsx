@@ -50,14 +50,11 @@ function formatDate(v: string | null) {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear() + 543}`;
 }
 
-function StatCard({ icon, label, value, cls }: { icon: React.ReactNode; label: string; value: number; cls: string }) {
+function StatCard({ label, value, cls }: { label: string; value: number; cls: string }) {
   return (
-    <div className={`flex items-center gap-3 rounded-xl border p-4 ${cls}`}>
-      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/70 flex-shrink-0">{icon}</span>
-      <div>
-        <p className="text-xl font-semibold">{value}</p>
-        <p className="text-xs opacity-80">{label}</p>
-      </div>
+    <div className={`flex flex-col gap-1 rounded-xl border p-4 ${cls}`}>
+      <p className="text-xl font-semibold">{value}</p>
+      <p className="text-xs opacity-80">{label}</p>
     </div>
   );
 }
@@ -111,7 +108,7 @@ export default function InspectionBoard({ employee, assets }: Props) {
       return;
     }
     setSaved(true);
-    router.refresh();
+    router.back();
   }
 
   return (
@@ -165,25 +162,21 @@ export default function InspectionBoard({ employee, assets }: Props) {
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard
-          icon={<span>🔒</span>}
           label="ทรัพย์สินทั้งหมด"
           value={total}
           cls="bg-blue-50 border-blue-100 text-blue-700"
         />
         <StatCard
-          icon={<span>✅</span>}
           label="ตรวจสอบแล้ว"
           value={checkedCount}
           cls="bg-green-50 border-green-100 text-green-700"
         />
         <StatCard
-          icon={<span>⚠️</span>}
           label="ไม่พบ"
           value={missingCount}
           cls="bg-orange-50 border-orange-100 text-orange-700"
         />
         <StatCard
-          icon={<span>🛡️</span>}
           label="เสียหาย"
           value={damagedCount}
           cls="bg-purple-50 border-purple-100 text-purple-700"

@@ -114,6 +114,7 @@ export default function AssignForm({ action, employees }: Props) {
         <SubmitButton
           label="ยืนยันมอบหมาย"
           pendingLabel="กำลังบันทึก…"
+          disabled={!selected}
         />
       </div>
     </form>

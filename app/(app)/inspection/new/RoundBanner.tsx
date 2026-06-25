@@ -21,7 +21,7 @@ export default function RoundBanner({ round }: Props) {
     return (
       <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
         <span className="text-sm text-green-800">
-          🟢 รอบการตรวจสอบปัจจุบัน: <span className="font-medium">{round.name}</span> ({round.year + 543})
+          รอบการตรวจสอบปัจจุบัน: <span className="font-medium">{round.name}</span> ({round.year + 543})
         </span>
         <Link href="/inspection/rounds" className="text-xs font-medium text-green-700 hover:underline">
           จัดการรอบการตรวจสอบ
@@ -47,7 +47,7 @@ export default function RoundBanner({ round }: Props) {
   return (
     <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-sm text-orange-800">⚠️ ยังไม่มีรอบการตรวจสอบที่เปิดอยู่ ต้องสร้างก่อนเริ่มตรวจสอบ</span>
+        <span className="text-sm text-orange-800">ยังไม่มีรอบการตรวจสอบที่เปิดอยู่ ต้องสร้างก่อนเริ่มตรวจสอบ</span>
         <div className="flex items-center gap-2">
           <input
             type="number"

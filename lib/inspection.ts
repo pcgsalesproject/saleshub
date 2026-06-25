@@ -34,7 +34,7 @@ export async function getInspectionRows(departmentId: number | null, roundId: nu
         AND (${departmentId}::int IS NULL OR e.department_id = ${departmentId})
     ),
     totals AS (
-      SELECT employee_id, COUNT(asset_id) AS total_assets
+      SELECT employee_id, COUNT(asset_id)::int AS total_assets
       FROM employee_assets
       GROUP BY employee_id
     ),
@@ -51,11 +51,11 @@ export async function getInspectionRows(departmentId: number | null, roundId: nu
     ),
     agg AS (
       SELECT employee_id,
-        COUNT(*) AS checked_assets,
-        COUNT(*) FILTER (WHERE status != 'found') AS problem_assets,
-        COUNT(*) FILTER (WHERE status = 'found') AS found_count,
-        COUNT(*) FILTER (WHERE status = 'damaged') AS damaged_count,
-        COUNT(*) FILTER (WHERE status = 'missing') AS missing_count,
+        COUNT(*)::int AS checked_assets,
+        COUNT(*) FILTER (WHERE status != 'found')::int AS problem_assets,
+        COUNT(*) FILTER (WHERE status = 'found')::int AS found_count,
+        COUNT(*) FILTER (WHERE status = 'damaged')::int AS damaged_count,
+        COUNT(*) FILTER (WHERE status = 'missing')::int AS missing_count,
         MAX(checked_at) AS last_checked_at
       FROM latest_per_asset
       GROUP BY employee_id
