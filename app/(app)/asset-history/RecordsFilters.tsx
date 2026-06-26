@@ -54,7 +54,7 @@ export default function RecordsFilters({ defaultSearch, defaultDateFrom, default
     if (next.docType) params.set("docType", next.docType);
     if (next.sort && next.sort !== "doc_desc") params.set("sort", next.sort);
     const qs = params.toString();
-    router.push(`/asset-records${qs ? `?${qs}` : ""}`);
+    router.push(`/asset-history${qs ? `?${qs}` : ""}`);
   }
 
   const hasDateFilter = Boolean(defaultDateFrom || defaultDateTo);

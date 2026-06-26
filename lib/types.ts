@@ -28,6 +28,7 @@ export interface Employee {
   national_id: string | null;
   phone: string | null;
   email: string | null;
+  gender: "male" | "female" | null;
   department_id: number | null;
   department_name: string | null;
   position_id: number | null;
@@ -38,6 +39,7 @@ export interface Employee {
   manager_name: string | null;
   photo_url: string | null;
   start_date: string | null;
+  resigned_at: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

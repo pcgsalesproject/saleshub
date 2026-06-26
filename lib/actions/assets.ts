@@ -164,7 +164,7 @@ export async function acknowledgeAssets(
   );
 
   revalidatePath("/assignments");
-  revalidatePath("/asset-records");
+  revalidatePath("/asset-history");
   return docNumber;
 }
 
@@ -195,7 +195,7 @@ export async function returnAssets(
   );
 
   revalidatePath("/assignments");
-  revalidatePath("/asset-records");
+  revalidatePath("/asset-history");
   return docNumber;
 }
 

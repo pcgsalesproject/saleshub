@@ -45,8 +45,8 @@ export default function EmployeeForm({ action, departments, positions, salesArea
       <section>
         <SectionTitle>ข้อมูลพนักงาน</SectionTitle>
 
-        {/* Row 1 — รหัสพนักงาน + วันที่เริ่มงาน + สถานะ */}
-        <div className="grid grid-cols-3 gap-5 mb-5">
+        {/* Row 1 — รหัสพนักงาน + วันที่เริ่มงาน + สถานะ + วันที่ลาออก */}
+        <div className="grid grid-cols-4 gap-5 mb-5">
           <div>
             <Label text="รหัสพนักงาน" required />
             <input
@@ -90,6 +90,15 @@ export default function EmployeeForm({ action, departments, positions, salesArea
                 <span className="text-sm text-gray-700">Inactive</span>
               </label>
             </div>
+          </div>
+          <div>
+            <Label text="วันที่ลาออก" />
+            <input
+              type="date"
+              name="resigned_at"
+              defaultValue={employee?.resigned_at ? new Date(employee.resigned_at).toISOString().slice(0, 10) : ""}
+              className={inputCls}
+            />
           </div>
         </div>
 
@@ -190,6 +199,18 @@ export default function EmployeeForm({ action, departments, positions, salesArea
             />
           </div>
           <div>
+            <Label text="เพศ" />
+            <select
+              name="gender"
+              defaultValue={employee?.gender ?? ""}
+              className={inputCls}
+            >
+              <option value="">— เลือก —</option>
+              <option value="male">ชาย</option>
+              <option value="female">หญิง</option>
+            </select>
+          </div>
+          <div>
             <Label text="เบอร์โทรศัพท์" />
             <input
               name="phone"
@@ -278,7 +299,7 @@ export default function EmployeeForm({ action, departments, positions, salesArea
           pendingLabel="กำลังบันทึก…"
         />
         <Link
-          href="/employees"
+          href="/employees/information"
           className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
         >
           ยกเลิก

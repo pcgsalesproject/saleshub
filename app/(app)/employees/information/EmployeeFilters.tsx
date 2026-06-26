@@ -29,7 +29,7 @@ export default function EmployeeFilters({
     for (const [key, value] of data.entries()) {
       if (value) params.set(key, String(value));
     }
-    router.push(`/employees${params.toString() ? `?${params}` : ""}`);
+    router.push(`/employees/information${params.toString() ? `?${params}` : ""}`);
   }
 
   return (

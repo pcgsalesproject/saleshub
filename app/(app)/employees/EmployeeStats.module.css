@@ -1,0 +1,210 @@
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.kpiCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  padding: 1.125rem 1.25rem;
+}
+
+.kpiTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.625rem;
+}
+
+.kpiTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.kpiIcon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue { background: #eff6ff; color: #3b82f6; }
+.kpiIconGreen { background: #f0fdf4; color: #22c55e; }
+.kpiIconOrange { background: #fff7ed; color: #f97316; }
+.kpiIconRed { background: #fef2f2; color: #ef4444; }
+.kpiIconPurple { background: #faf5ff; color: #a855f7; }
+.kpiIconCyan { background: #ecfeff; color: #06b6d4; }
+
+.kpiValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
+}
+
+.kpiSub {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.genderRow {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.genderBar {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #fce7f3;
+  overflow: hidden;
+}
+
+.genderBarFill {
+  height: 100%;
+  background: #3b82f6;
+}
+
+/* ── Panels grid ── */
+.panelGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.panelFooter {
+  margin-top: auto;
+  padding-top: 0.875rem;
+}
+
+.detailBtn {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #374151;
+  background: #fff;
+  cursor: default;
+}
+
+/* ── Donut legend ── */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: #374151;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legendDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Bar chart ── */
+.barChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.625rem;
+  flex: 1;
+  min-height: 160px;
+}
+
+.barCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  height: 100%;
+}
+
+.barValue {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.bar {
+  width: 100%;
+  max-width: 1.75rem;
+  border-radius: 0.25rem 0.25rem 0 0;
+  background: #3b82f6;
+}
+
+.barLabel {
+  font-size: 0.6875rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.hBarRow {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.75rem;
+}
+
+.hBarLabel {
+  width: 4.5rem;
+  flex-shrink: 0;
+  color: #6b7280;
+}
+
+.hBarTrack {
+  flex: 1;
+  height: 0.875rem;
+  border-radius: 999px;
+  background: #f3f4f6;
+  overflow: hidden;
+}
+
+.hBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: #06b6d4;
+}
+
+.hBarValue {
+  width: 3.5rem;
+  flex-shrink: 0;
+  text-align: right;
+  color: #374151;
+  font-weight: 600;
+}

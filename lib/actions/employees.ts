@@ -34,6 +34,7 @@ export async function uploadEmployeePhoto(
 
   revalidatePath(`/employees/${employeeId}`);
   revalidatePath("/employees");
+  revalidatePath("/employees/information");
   return { ok: true, url: data.publicUrl };
 }
 
@@ -53,9 +54,11 @@ function extractFields(formData: FormData) {
     last_name_en:  (formData.get("last_name_en")  as string) || null,
     date_of_birth: (formData.get("date_of_birth") as string) || null,
     start_date:    (formData.get("start_date")    as string) || null,
+    resigned_at:   (formData.get("resigned_at")   as string) || null,
     national_id:   (formData.get("national_id")   as string) || null,
     phone:         (formData.get("phone")          as string) || null,
     email:         (formData.get("email")          as string) || null,
+    gender:        (formData.get("gender")         as string) || null,
     department_id: deptRaw ? Number(deptRaw) : null,
     position_id:   posRaw  ? Number(posRaw)  : null,
     sales_area_id: areaRaw ? Number(areaRaw) : null,
@@ -72,12 +75,12 @@ export async function createEmployee(formData: FormData) {
       INSERT INTO employees
         (employee_id, prefix_th, first_name, last_name,
          prefix_en, first_name_en, last_name_en,
-         date_of_birth, national_id, phone, email, start_date,
+         date_of_birth, national_id, phone, email, gender, start_date, resigned_at,
          department_id, position_id, sales_area_id, manager_id, is_active)
       VALUES (
         ${f.employee_id}, ${f.prefix_th}, ${f.first_name}, ${f.last_name},
         ${f.prefix_en}, ${f.first_name_en}, ${f.last_name_en},
-        ${f.date_of_birth}, ${f.national_id}, ${f.phone}, ${f.email}, ${f.start_date},
+        ${f.date_of_birth}, ${f.national_id}, ${f.phone}, ${f.email}, ${f.gender}, ${f.start_date}, ${f.resigned_at},
         ${f.department_id}, ${f.position_id}, ${f.sales_area_id}, ${f.manager_id}, ${f.is_active}
       )
     `;
@@ -87,7 +90,8 @@ export async function createEmployee(formData: FormData) {
   }
 
   revalidatePath("/employees");
-  redirect("/employees");
+  revalidatePath("/employees/information");
+  redirect("/employees/information");
 }
 
 export async function updateEmployee(id: number, formData: FormData) {
@@ -105,9 +109,11 @@ export async function updateEmployee(id: number, formData: FormData) {
         last_name_en  = ${f.last_name_en},
         date_of_birth = ${f.date_of_birth},
         start_date    = ${f.start_date},
+        resigned_at   = ${f.resigned_at},
         national_id   = ${f.national_id},
         phone         = ${f.phone},
         email         = ${f.email},
+        gender        = ${f.gender},
         department_id = ${f.department_id},
         position_id   = ${f.position_id},
         sales_area_id = ${f.sales_area_id},
@@ -121,8 +127,9 @@ export async function updateEmployee(id: number, formData: FormData) {
   }
 
   revalidatePath("/employees");
+  revalidatePath("/employees/information");
   revalidatePath(`/employees/${id}`);
-  redirect("/employees");
+  redirect("/employees/information");
 }
 
 export async function deleteEmployee(id: number) {
@@ -133,5 +140,6 @@ export async function deleteEmployee(id: number) {
     throw new Error("ไม่สามารถลบข้อมูลพนักงานได้");
   }
   revalidatePath("/employees");
-  redirect("/employees");
+  revalidatePath("/employees/information");
+  redirect("/employees/information");
 }
