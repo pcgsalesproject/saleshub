@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import type { Asset, AssetType } from "@/lib/types";
 import AssetFilters from "./AssetFilters";
 import DeleteAssetButton from "./DeleteAssetButton";
+import ExpiringSoonCard from "./ExpiringSoonCard";
 import s from "./page.module.css";
 
 const PAGE_SIZE = 10;
@@ -22,6 +23,30 @@ async function getStats(): Promise<AssetStats> {
       (SELECT COUNT(*) FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry >= CURRENT_DATE AND warranty_expiry <= CURRENT_DATE + INTERVAL '30 days')::int AS expiring_soon
   `;
   return row;
+}
+
+export interface ExpiringAsset {
+  id: number;
+  asset_tag: string;
+  asset_name: string;
+  asset_type_name: string | null;
+  warranty_expiry: string;
+  employee_name: string | null;
+}
+
+async function getExpiringAssets(): Promise<ExpiringAsset[]> {
+  return sql<ExpiringAsset[]>`
+    SELECT a.id, a.asset_tag, a.asset_name, at.name AS asset_type_name, a.warranty_expiry,
+      TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name
+    FROM assets a
+    LEFT JOIN asset_types at ON a.asset_type_id = at.id
+    LEFT JOIN asset_assignments aa ON aa.asset_id = a.id AND aa.returned_at IS NULL
+    LEFT JOIN employees e ON e.id = aa.employee_id
+    WHERE a.warranty_expiry IS NOT NULL
+      AND a.warranty_expiry >= CURRENT_DATE
+      AND a.warranty_expiry <= CURRENT_DATE + INTERVAL '30 days'
+    ORDER BY a.warranty_expiry ASC
+  `;
 }
 
 function KpiCard({
@@ -224,10 +249,11 @@ export default async function AssetsPage(props: PageProps<"/assets">) {
     page: Math.max(Number(page) || 1, 1),
   };
 
-  const [assetTypes, stats, { rows, total }] = await Promise.all([
+  const [assetTypes, stats, { rows, total }, expiringAssets] = await Promise.all([
     getAssetTypes(),
     getStats(),
     getAssets(filters),
+    getExpiringAssets(),
   ]);
   const available = Math.max(stats.total - stats.assigned, 0);
 
@@ -288,17 +314,7 @@ export default async function AssetsPage(props: PageProps<"/assets">) {
             </svg>
           }
         />
-        <KpiCard
-          title="Expiring Soon (30 Days)"
-          value={stats.expiring_soon}
-          sub="Warranty expires soon"
-          iconColor="orange"
-          icon={
-            <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-        />
+        <ExpiringSoonCard value={stats.expiring_soon} assets={expiringAssets} />
       </div>
 
       <AssetFilters

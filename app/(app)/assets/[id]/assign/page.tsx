@@ -103,6 +103,7 @@ export default async function AssignAssetPage(props: PageProps<"/assets/[id]/ass
               ["ประเภท", asset.asset_type_name],
               ["ยี่ห้อ / รุ่น", [asset.brand, asset.model].filter(Boolean).join(" ") || null],
               ["Serial Number", asset.serial_number],
+              ["หมายเลขโทรศัพท์", asset.phone_number],
             ].map(([label, value]) => (
               <div key={label} className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
                 <span className="text-sm text-gray-400">{label}</span>

@@ -1,5 +1,6 @@
 import sql from "@/lib/db";
 import s from "./EmployeeStats.module.css";
+import { DepartmentDonut, AgeBarChart, TenureHBarChart } from "./EmployeeCharts";
 
 interface Totals {
   total: number;
@@ -14,11 +15,6 @@ interface Totals {
 interface DeptRow {
   name: string;
   count: number;
-}
-
-interface TurnoverRow {
-  month: string;
-  rate: number;
 }
 
 const AGE_BUCKETS = [
@@ -37,9 +33,6 @@ const TENURE_BUCKETS = [
   { label: "5 - 10 ปี", min: 5, max: 10 },
   { label: "มากกว่า 10 ปี", min: 10, max: 999 },
 ];
-
-const DEPT_COLORS = ["#a855f7", "#3b82f6", "#22c55e", "#06b6d4", "#f97316", "#9ca3af", "#facc15"];
-const THAI_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
 async function getTotals(): Promise<Totals> {
   const [row] = await sql<Totals[]>`
@@ -82,28 +75,6 @@ async function getTenures(): Promise<number[]> {
   return rows.map((r) => Number(r.tenure));
 }
 
-async function getTurnoverRate(): Promise<TurnoverRow[]> {
-  const rows = await sql<{ month: string; resigned: number; headcount: number }[]>`
-    SELECT
-      to_char(m, 'YYYY-MM') AS month,
-      (SELECT COUNT(*) FROM employees
-        WHERE resigned_at >= m AND resigned_at < m + INTERVAL '1 month')::int AS resigned,
-      (SELECT COUNT(*) FROM employees
-        WHERE start_date < m + INTERVAL '1 month'
-          AND (resigned_at IS NULL OR resigned_at >= m))::int AS headcount
-    FROM generate_series(
-      date_trunc('month', CURRENT_DATE) - INTERVAL '5 months',
-      date_trunc('month', CURRENT_DATE),
-      INTERVAL '1 month'
-    ) AS m
-    ORDER BY m
-  `;
-  return rows.map((r) => ({
-    month: r.month,
-    rate: r.headcount > 0 ? (r.resigned / r.headcount) * 100 : 0,
-  }));
-}
-
 function KpiCard({
   title,
   value,
@@ -138,138 +109,13 @@ function KpiCard({
   );
 }
 
-function Donut({ data }: { data: DeptRow[] }) {
-  const total = data.reduce((sum, d) => sum + d.count, 0) || 1;
-  const radius = 15.9155;
-  const circumference = 2 * Math.PI * radius;
-
-  const segments = data.reduce<Array<DeptRow & { dash: number; offset: number; color: string }>>(
-    (acc, d, i) => {
-      const dash = (d.count / total) * circumference;
-      const offset = acc.length > 0 ? acc[acc.length - 1].offset + acc[acc.length - 1].dash : 0;
-      return [...acc, { ...d, dash, offset, color: DEPT_COLORS[i % DEPT_COLORS.length] }];
-    },
-    []
-  );
-
-  return (
-    <div className="flex items-center gap-4">
-      <div className="relative w-32 h-32 flex-shrink-0">
-        <svg viewBox="0 0 36 36" className="w-32 h-32 -rotate-90">
-          {segments.map((seg) => (
-            <circle
-              key={seg.name}
-              cx="18"
-              cy="18"
-              r={radius}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth="5"
-              strokeDasharray={`${seg.dash} ${circumference - seg.dash}`}
-              strokeDashoffset={-seg.offset}
-            />
-          ))}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold text-gray-900">{total}</span>
-          <span className="text-xs text-gray-400">คน</span>
-        </div>
-      </div>
-      <div className={s.legend}>
-        {data.map((d, i) => (
-          <div key={d.name} className={s.legendItem}>
-            <span className={s.legendDot} style={{ background: DEPT_COLORS[i % DEPT_COLORS.length] }} />
-            <span>
-              {d.name} {((d.count / total) * 100).toFixed(0)}% ({d.count} คน)
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BarChart({ buckets }: { buckets: { label: string; count: number }[] }) {
-  const max = Math.max(...buckets.map((b) => b.count), 1);
-  return (
-    <div className={s.barChart}>
-      {buckets.map((b) => (
-        <div key={b.label} className={s.barCol}>
-          <span className={s.barValue}>{b.count}</span>
-          <div className={s.bar} style={{ height: `${Math.max((b.count / max) * 100, 2)}%` }} />
-          <span className={s.barLabel}>{b.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function HBarChart({ buckets }: { buckets: { label: string; count: number; pct: number }[] }) {
-  const max = Math.max(...buckets.map((b) => b.count), 1);
-  return (
-    <div className="flex flex-col gap-2.5 flex-1 justify-center">
-      {buckets.map((b) => (
-        <div key={b.label} className={s.hBarRow}>
-          <span className={s.hBarLabel}>{b.label}</span>
-          <div className={s.hBarTrack}>
-            <div className={s.hBarFill} style={{ width: `${(b.count / max) * 100}%` }} />
-          </div>
-          <span className={s.hBarValue}>
-            {b.count} ({b.pct.toFixed(0)}%)
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TurnoverChart({ data }: { data: TurnoverRow[] }) {
-  const width = 260;
-  const height = 140;
-  const padX = 10;
-  const padY = 16;
-  const maxRate = Math.max(...data.map((d) => d.rate), 5);
-  const points = data.map((d, i) => {
-    const x = padX + (i / Math.max(data.length - 1, 1)) * (width - padX * 2);
-    const y = height - padY - (d.rate / maxRate) * (height - padY * 2);
-    return { x, y, ...d };
-  });
-  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const last = points[points.length - 1];
-
-  return (
-    <div className="relative flex-1">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
-        <path d={path} fill="none" stroke="#3b82f6" strokeWidth="2" />
-        {points.map((p) => (
-          <circle key={p.month} cx={p.x} cy={p.y} r={p === last ? 4 : 3} fill="#3b82f6" />
-        ))}
-      </svg>
-      <div className="flex justify-between text-[0.6875rem] text-gray-500 px-1">
-        {data.map((d) => {
-          const [, m] = d.month.split("-");
-          return <span key={d.month}>{THAI_MONTHS[Number(m) - 1]}</span>;
-        })}
-      </div>
-      {last && (
-        <div className="absolute -top-1 right-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs shadow-sm">
-          <p className="text-gray-400">
-            {THAI_MONTHS[Number(last.month.split("-")[1]) - 1]} {Number(last.month.split("-")[0]) + 543}
-          </p>
-          <p className="font-semibold text-gray-900">{last.rate.toFixed(1)}%</p>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default async function EmployeeStats() {
-  const [totals, departments, ages, tenures, turnover] = await Promise.all([
+  const [totals, departments, ages, tenures] = await Promise.all([
     getTotals(),
     getDepartmentBreakdown(),
     getAges(),
     getTenures(),
-    getTurnoverRate(),
   ]);
 
   const genderTotal = totals.male + totals.female;
@@ -365,9 +211,9 @@ export default async function EmployeeStats() {
       </div>
 
       <div className={s.panelGrid}>
-        <div className={s.panel}>
+        <div className={`${s.panel} ${s.panelTall}`}>
           <p className={s.panelTitle}>พนักงานตามแผนก</p>
-          <Donut data={departments} />
+          <DepartmentDonut data={departments} />
           <div className={s.panelFooter}>
             <button type="button" className={s.detailBtn}>ดูรายละเอียด</button>
           </div>
@@ -375,7 +221,7 @@ export default async function EmployeeStats() {
 
         <div className={s.panel}>
           <p className={s.panelTitle}>ช่วงอายุพนักงาน (คน)</p>
-          <BarChart buckets={ageBuckets} />
+          <AgeBarChart data={ageBuckets} />
           <div className={s.panelFooter}>
             <button type="button" className={s.detailBtn}>ดูรายละเอียด</button>
           </div>
@@ -383,19 +229,12 @@ export default async function EmployeeStats() {
 
         <div className={s.panel}>
           <p className={s.panelTitle}>อายุงานของพนักงาน</p>
-          <HBarChart buckets={tenureBuckets} />
+          <TenureHBarChart data={tenureBuckets} />
           <div className={s.panelFooter}>
             <button type="button" className={s.detailBtn}>ดูรายละเอียด</button>
           </div>
         </div>
 
-        <div className={s.panel}>
-          <p className={s.panelTitle}>อัตราการลาออก (Turnover Rate)</p>
-          <TurnoverChart data={turnover} />
-          <div className={s.panelFooter}>
-            <button type="button" className={s.detailBtn}>ดูรายละเอียด</button>
-          </div>
-        </div>
       </div>
     </div>
   );
