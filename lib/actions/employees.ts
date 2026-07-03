@@ -132,6 +132,33 @@ export async function updateEmployee(id: number, formData: FormData) {
   redirect("/employees/information");
 }
 
+export async function bulkUpdateGender(formData: FormData) {
+  const updates: { id: number; gender: "male" | "female" }[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("gender_")) continue;
+    if (value !== "male" && value !== "female") continue;
+    updates.push({ id: Number(key.slice("gender_".length)), gender: value });
+  }
+
+  if (updates.length > 0) {
+    try {
+      await sql.begin(async (tx) => {
+        for (const u of updates) {
+          await tx`UPDATE employees SET gender = ${u.gender} WHERE id = ${u.id}`;
+        }
+      });
+    } catch (error) {
+      console.error("Failed to bulk update gender:", error);
+      throw new Error("ไม่สามารถบันทึกข้อมูลเพศได้");
+    }
+  }
+
+  revalidatePath("/employees");
+  revalidatePath("/employees/information");
+  revalidatePath("/employees/gender");
+  redirect("/employees/gender");
+}
+
 export async function deleteEmployee(id: number) {
   try {
     await sql`DELETE FROM employees WHERE id = ${id}`;

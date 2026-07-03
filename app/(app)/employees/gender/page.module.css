@@ -1,0 +1,40 @@
+.tableWrap {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th {
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 0.625rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.select {
+  width: auto;
+  min-width: 9rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
