@@ -115,7 +115,14 @@ export default function Sidebar() {
       </nav>
 
       <div className="px-4 py-4 border-t border-white/10 space-y-3">
-        <form action={logout}>
+        <form
+          action={logout}
+          onSubmit={() => {
+            if (typeof caches !== "undefined") {
+              caches.keys().then((keys) => keys.forEach((key) => caches.delete(key)));
+            }
+          }}
+        >
           <button
             type="submit"
             className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"

@@ -86,7 +86,7 @@ export default function AcknowledgeForm({ employees, assets, assetTypes, preview
 
     startTransition(async () => {
       try {
-        const docNumber = await acknowledgeAssets(
+        const result = await acknowledgeAssets(
           selectedEmployee.id,
           selectedAssets.map((a) => a.id),
           assignedAt,
@@ -95,6 +95,12 @@ export default function AcknowledgeForm({ employees, assets, assetTypes, preview
           endorsedBy?.id ?? null,
           approvedBy?.id ?? null
         );
+
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        const docNumber = result.docNumber;
 
         const blob = await pdf(
           <AcknowledgePdf

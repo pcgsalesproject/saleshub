@@ -2,6 +2,7 @@
 
 import sql from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireRole } from "@/lib/roles";
 
 export interface InspectionRound {
   id: number;
@@ -22,6 +23,8 @@ export async function getOpenRound(): Promise<InspectionRound | null> {
 }
 
 export async function createRound(year: number, name: string) {
+  await requireRole("admin");
+
   await sql.begin(async (tx) => {
     await tx`UPDATE inspection_rounds SET status = 'closed', closed_at = NOW() WHERE status = 'open'`;
     await tx`INSERT INTO inspection_rounds (year, name, status) VALUES (${year}, ${name}, 'open')`;
@@ -32,6 +35,8 @@ export async function createRound(year: number, name: string) {
 }
 
 export async function closeRound(id: number) {
+  await requireRole("admin");
+
   await sql`UPDATE inspection_rounds SET status = 'closed', closed_at = NOW() WHERE id = ${id}`;
 
   revalidatePath("/inspection/rounds");
@@ -39,6 +44,8 @@ export async function closeRound(id: number) {
 }
 
 export async function reopenRound(id: number) {
+  await requireRole("admin");
+
   await sql.begin(async (tx) => {
     await tx`UPDATE inspection_rounds SET status = 'closed', closed_at = NOW() WHERE status = 'open'`;
     await tx`UPDATE inspection_rounds SET status = 'open', closed_at = NULL WHERE id = ${id}`;

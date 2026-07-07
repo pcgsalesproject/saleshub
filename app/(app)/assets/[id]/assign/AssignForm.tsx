@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import SubmitButton from "@/components/SubmitButton";
+import { useActionState, useState } from "react";
+import type { FormActionState } from "@/lib/actions/assets";
 
 interface Employee {
   id: number;
@@ -12,11 +12,13 @@ interface Employee {
 }
 
 interface Props {
-  action: (formData: FormData) => Promise<void>;
+  action: (prevState: FormActionState | undefined, formData: FormData) => Promise<FormActionState>;
   employees: Employee[];
+  disabled?: boolean;
 }
 
-export default function AssignForm({ action, employees }: Props) {
+export default function AssignForm({ action, employees, disabled }: Props) {
+  const [state, formAction, pending] = useActionState(action, undefined);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Employee | null>(null);
 
@@ -30,7 +32,7 @@ export default function AssignForm({ action, employees }: Props) {
   });
 
   return (
-    <form action={action} className="space-y-5">
+    <form action={formAction} className="space-y-5">
       <input type="hidden" name="employee_id" value={selected?.id ?? ""} />
 
       {/* Employee search */}
@@ -110,12 +112,20 @@ export default function AssignForm({ action, employees }: Props) {
         />
       </div>
 
+      {state?.error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {state.error}
+        </p>
+      )}
+
       <div className="flex items-center justify-end gap-3 pt-1">
-        <SubmitButton
-          label="ยืนยันมอบหมาย"
-          pendingLabel="กำลังบันทึก…"
-          disabled={!selected}
-        />
+        <button
+          type="submit"
+          disabled={pending || !selected || disabled}
+          className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {pending ? "กำลังบันทึก…" : "ยืนยันมอบหมาย"}
+        </button>
       </div>
     </form>
   );

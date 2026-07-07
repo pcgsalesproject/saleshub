@@ -1,8 +1,14 @@
 -- PostgreSQL Schema for SalesHub
 
+DROP TABLE IF EXISTS asset_checks;
+DROP TABLE IF EXISTS inspection_sessions;
+DROP TABLE IF EXISTS inspection_rounds;
+DROP TABLE IF EXISTS document_number_sequences;
 DROP TABLE IF EXISTS asset_assignments;
 DROP TABLE IF EXISTS assets;
 DROP TABLE IF EXISTS asset_types;
+DROP TABLE IF EXISTS user_roles;
+DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS employees;
 DROP TABLE IF EXISTS sales_areas;
 DROP TABLE IF EXISTS positions;
@@ -97,6 +103,27 @@ CREATE TABLE asset_assignments (
     return_approved_by_id INT REFERENCES employees(id)
 );
 
+-- Only one active (not yet returned) assignment per asset at a time
+CREATE UNIQUE INDEX asset_assignments_active_asset_idx ON asset_assignments (asset_id) WHERE returned_at IS NULL;
+
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL CHECK (name IN ('admin', 'viewer'))
+);
+
+CREATE TABLE user_roles (
+    id SERIAL PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    role_id INT NOT NULL REFERENCES roles(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO roles (name) VALUES ('admin'), ('viewer') ON CONFLICT DO NOTHING;
+
+-- Bootstrap: assign the first admin manually after seeding, e.g.
+-- INSERT INTO user_roles (email, role_id) VALUES ('you@example.com', (SELECT id FROM roles WHERE name = 'admin'));
+-- Any authenticated user without a row in user_roles is treated as 'viewer' (read-only).
+
 CREATE TABLE document_number_sequences (
     year INT PRIMARY KEY,
     last_seq INT NOT NULL DEFAULT 0
@@ -126,6 +153,10 @@ CREATE TABLE asset_checks (
     id SERIAL PRIMARY KEY,
     asset_id INT NOT NULL REFERENCES assets(id),
     checked_by_id INT REFERENCES employees(id),
+    -- Snapshot of who was holding the asset at the moment it was checked
+    -- (captured at insert time), used for reporting so a later transfer of
+    -- the asset never re-attributes this historical check to someone else.
+    holder_employee_id INT REFERENCES employees(id),
     status VARCHAR NOT NULL DEFAULT 'found',
     comment TEXT,
     checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

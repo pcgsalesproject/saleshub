@@ -1,8 +1,10 @@
 "use server";
 
 import sql from "@/lib/db";
+import type { ISql } from "postgres";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/roles";
 
 const RANDOM_TAG_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
 
@@ -25,6 +27,12 @@ async function generateUniqueAssetTag(typeId: number | null): Promise<string> {
 }
 
 export async function regenerateAssetTag(assetId: number): Promise<{ ok: true; tag: string } | { ok: false; error: string }> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { ok: false, error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
+
   const rows = await sql<{ asset_type_id: number | null }[]>`SELECT asset_type_id FROM assets WHERE id = ${assetId}`;
   if (rows.length === 0) return { ok: false, error: "ไม่พบทรัพย์สิน" };
 
@@ -64,6 +72,8 @@ function extractFields(formData: FormData) {
 }
 
 export async function createAsset(formData: FormData) {
+  await requireRole("admin");
+
   const f = extractFields(formData);
 
   try {
@@ -89,6 +99,12 @@ export async function createAsset(formData: FormData) {
 
 export async function deleteAsset(assetId: number): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
+    await requireRole("admin");
+  } catch {
+    return { ok: false, error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
+
+  try {
     await sql`DELETE FROM assets WHERE id = ${assetId}`;
   } catch (error) {
     console.error("Failed to delete asset:", error);
@@ -99,17 +115,50 @@ export async function deleteAsset(assetId: number): Promise<{ ok: true } | { ok:
   return { ok: true };
 }
 
-export async function assignAsset(assetId: number, formData: FormData) {
+export interface FormActionState {
+  error?: string;
+}
+
+export async function assignAsset(
+  assetId: number,
+  _prevState: FormActionState | undefined,
+  formData: FormData
+): Promise<FormActionState> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
+
   const employeeId = Number(formData.get("employee_id"));
   const assignedAt = (formData.get("assigned_at") as string) || new Date().toISOString().slice(0, 10);
   const note = (formData.get("note") as string) || null;
 
-  if (!employeeId) throw new Error("กรุณาเลือกพนักงาน");
+  if (!employeeId) return { error: "กรุณาเลือกพนักงาน" };
 
-  await sql`
-    INSERT INTO asset_assignments (asset_id, employee_id, assigned_at, note)
-    VALUES (${assetId}, ${employeeId}, ${assignedAt}, ${note})
-  `;
+  try {
+    await sql.begin(async (tx) => {
+      const [asset] = await tx<{ status: string | null }[]>`
+        SELECT status FROM assets WHERE id = ${assetId} FOR UPDATE
+      `;
+      if (!asset) throw new Error("ไม่พบทรัพย์สิน");
+      if (asset.status && asset.status !== "available") {
+        throw new Error("ทรัพย์สินนี้ไม่พร้อมสำหรับการมอบ (สถานะไม่ใช่ available)");
+      }
+
+      const [active] = await tx<{ id: number }[]>`
+        SELECT id FROM asset_assignments WHERE asset_id = ${assetId} AND returned_at IS NULL FOR UPDATE
+      `;
+      if (active) throw new Error("ทรัพย์สินนี้ถูกมอบหมายให้พนักงานคนอื่นอยู่แล้ว");
+
+      await tx`
+        INSERT INTO asset_assignments (asset_id, employee_id, assigned_at, note)
+        VALUES (${assetId}, ${employeeId}, ${assignedAt}, ${note})
+      `;
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด ไม่สามารถมอบหมายได้" };
+  }
 
   revalidatePath(`/assets/${assetId}`);
   redirect(`/assets/${assetId}`);
@@ -126,10 +175,10 @@ export async function peekNextDocumentNumber(): Promise<string> {
   return `ทส.ฝข.${String(nextSeq).padStart(3, "0")}/${buddhistYear}`;
 }
 
-export async function getNextDocumentNumber(): Promise<string> {
+export async function getNextDocumentNumber(client: ISql<{}> = sql): Promise<string> {
   const buddhistYear = new Date().getFullYear() + 543;
 
-  const [{ last_seq }] = await sql<{ last_seq: number }[]>`
+  const [{ last_seq }] = await client<{ last_seq: number }[]>`
     INSERT INTO document_number_sequences (year, last_seq)
     VALUES (${buddhistYear}, 1)
     ON CONFLICT (year) DO UPDATE SET last_seq = document_number_sequences.last_seq + 1
@@ -139,6 +188,8 @@ export async function getNextDocumentNumber(): Promise<string> {
   return `ทส.ฝข.${String(last_seq).padStart(3, "0")}/${buddhistYear}`;
 }
 
+export type DocResult = { ok: true; docNumber: string } | { ok: false; error: string };
+
 export async function acknowledgeAssets(
   employeeId: number,
   assetIds: number[],
@@ -147,25 +198,54 @@ export async function acknowledgeAssets(
   proposedById: number | null,
   endorsedById: number | null,
   approvedById: number | null
-): Promise<string> {
-  if (!employeeId) throw new Error("กรุณาเลือกพนักงาน");
-  if (!assetIds.length) throw new Error("กรุณาเลือกทรัพย์สินอย่างน้อย 1 รายการ");
+): Promise<DocResult> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { ok: false, error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
 
-  const docNumber = await getNextDocumentNumber();
+  if (!employeeId) return { ok: false, error: "กรุณาเลือกพนักงาน" };
+  if (!assetIds.length) return { ok: false, error: "กรุณาเลือกทรัพย์สินอย่างน้อย 1 รายการ" };
 
-  await Promise.all(
-    assetIds.map((assetId) =>
-      sql`
-        INSERT INTO asset_assignments
-          (asset_id, employee_id, assigned_at, note, doc_number, proposed_by_id, endorsed_by_id, approved_by_id)
-        VALUES (${assetId}, ${employeeId}, ${assignedAt}, ${note}, ${docNumber}, ${proposedById}, ${endorsedById}, ${approvedById})
-      `
-    )
-  );
+  try {
+    const docNumber = await sql.begin(async (tx) => {
+      // Validate every asset first so the document sequence is only
+      // consumed once we know the whole batch can succeed.
+      for (const assetId of assetIds) {
+        const [asset] = await tx<{ status: string | null }[]>`
+          SELECT status FROM assets WHERE id = ${assetId} FOR UPDATE
+        `;
+        if (!asset) throw new Error(`ไม่พบทรัพย์สิน #${assetId}`);
+        if (asset.status && asset.status !== "available") {
+          throw new Error(`ทรัพย์สิน #${assetId} ไม่พร้อมสำหรับการมอบ (สถานะ: ${asset.status})`);
+        }
 
-  revalidatePath("/assignments");
-  revalidatePath("/asset-history");
-  return docNumber;
+        const [active] = await tx<{ id: number }[]>`
+          SELECT id FROM asset_assignments WHERE asset_id = ${assetId} AND returned_at IS NULL FOR UPDATE
+        `;
+        if (active) throw new Error(`ทรัพย์สิน #${assetId} ถูกมอบหมายอยู่แล้ว`);
+      }
+
+      const docNumber = await getNextDocumentNumber(tx);
+
+      for (const assetId of assetIds) {
+        await tx`
+          INSERT INTO asset_assignments
+            (asset_id, employee_id, assigned_at, note, doc_number, proposed_by_id, endorsed_by_id, approved_by_id)
+          VALUES (${assetId}, ${employeeId}, ${assignedAt}, ${note}, ${docNumber}, ${proposedById}, ${endorsedById}, ${approvedById})
+        `;
+      }
+
+      return docNumber;
+    });
+
+    revalidatePath("/assignments");
+    revalidatePath("/asset-history");
+    return { ok: true, docNumber };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด ไม่สามารถบันทึกได้" };
+  }
 }
 
 export async function returnAssets(
@@ -174,29 +254,57 @@ export async function returnAssets(
   proposedById: number | null,
   endorsedById: number | null,
   approvedById: number | null
-): Promise<string> {
-  if (!items.length) throw new Error("กรุณาเลือกทรัพย์สินอย่างน้อย 1 รายการ");
+): Promise<DocResult> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { ok: false, error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
 
-  const docNumber = await getNextDocumentNumber();
+  if (!items.length) return { ok: false, error: "กรุณาเลือกทรัพย์สินอย่างน้อย 1 รายการ" };
 
-  await Promise.all(
-    items.map((item) =>
-      sql`
-        UPDATE asset_assignments SET
-          returned_at = ${returnedAt},
-          condition = ${item.condition},
-          return_doc_number = ${docNumber},
-          return_proposed_by_id = ${proposedById},
-          return_endorsed_by_id = ${endorsedById},
-          return_approved_by_id = ${approvedById}
-        WHERE id = ${item.assignmentId}
-      `
-    )
-  );
+  try {
+    const docNumber = await sql.begin(async (tx) => {
+      // Validate every assignment first (still active, return date not
+      // before the assign date) before the document sequence is consumed.
+      for (const item of items) {
+        const [assignment] = await tx<{ assigned_date: string }[]>`
+          SELECT assigned_at::date::text AS assigned_date FROM asset_assignments
+          WHERE id = ${item.assignmentId} AND returned_at IS NULL
+          FOR UPDATE
+        `;
+        if (!assignment) {
+          throw new Error(`รายการมอบหมาย #${item.assignmentId} ถูกคืนไปแล้วหรือไม่พบข้อมูล`);
+        }
+        if (returnedAt < assignment.assigned_date) {
+          throw new Error("วันที่คืนต้องไม่ก่อนวันที่รับ");
+        }
+      }
 
-  revalidatePath("/assignments");
-  revalidatePath("/asset-history");
-  return docNumber;
+      const docNumber = await getNextDocumentNumber(tx);
+
+      for (const item of items) {
+        await tx`
+          UPDATE asset_assignments SET
+            returned_at = ${returnedAt},
+            condition = ${item.condition},
+            return_doc_number = ${docNumber},
+            return_proposed_by_id = ${proposedById},
+            return_endorsed_by_id = ${endorsedById},
+            return_approved_by_id = ${approvedById}
+          WHERE id = ${item.assignmentId}
+        `;
+      }
+
+      return docNumber;
+    });
+
+    revalidatePath("/assignments");
+    revalidatePath("/asset-history");
+    return { ok: true, docNumber };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด ไม่สามารถบันทึกได้" };
+  }
 }
 
 interface ReprintPerson {
@@ -404,19 +512,51 @@ export async function getReturnDocumentForReprint(docNumber: string): Promise<Re
   };
 }
 
-export async function returnAsset(assignmentId: number, assetId: number) {
-  await sql`
-    UPDATE asset_assignments SET returned_at = NOW() WHERE id = ${assignmentId}
+export async function returnAsset(
+  assignmentId: number,
+  assetId: number,
+  _prevState: FormActionState | undefined,
+  _formData: FormData
+): Promise<FormActionState> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
+
+  const result = await sql`
+    UPDATE asset_assignments
+    SET returned_at = NOW()
+    WHERE id = ${assignmentId} AND asset_id = ${assetId} AND returned_at IS NULL
   `;
+  if (result.count === 0) {
+    return { error: "ไม่สามารถคืนทรัพย์สินได้ อาจถูกคืนไปแล้วหรือข้อมูลไม่ตรงกับทรัพย์สินนี้" };
+  }
 
   revalidatePath(`/assets/${assetId}`);
   redirect(`/assets/${assetId}`);
 }
 
-export async function returnAssetFromEmployee(assignmentId: number, employeeId: number) {
-  await sql`
-    UPDATE asset_assignments SET returned_at = NOW() WHERE id = ${assignmentId}
+export async function returnAssetFromEmployee(
+  assignmentId: number,
+  employeeId: number,
+  _prevState: FormActionState | undefined,
+  _formData: FormData
+): Promise<FormActionState> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
+
+  const result = await sql`
+    UPDATE asset_assignments
+    SET returned_at = NOW()
+    WHERE id = ${assignmentId} AND employee_id = ${employeeId} AND returned_at IS NULL
   `;
+  if (result.count === 0) {
+    return { error: "ไม่สามารถคืนทรัพย์สินได้ อาจถูกคืนไปแล้วหรือข้อมูลไม่ตรงกับพนักงานนี้" };
+  }
 
   revalidatePath(`/employees/${employeeId}`);
   redirect(`/employees/${employeeId}?tab=assignments`);
@@ -448,6 +588,8 @@ function cleanField(v: string | undefined): string | null {
 }
 
 export async function importAssets(csvText: string): Promise<ImportResult> {
+  await requireRole("admin");
+
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
   const dataLines = lines.slice(1); // drop header
 
@@ -541,6 +683,8 @@ export async function importAssets(csvText: string): Promise<ImportResult> {
 }
 
 export async function updateAsset(id: number, formData: FormData) {
+  await requireRole("admin");
+
   const f = extractFields(formData);
 
   try {

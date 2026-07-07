@@ -4,6 +4,7 @@ import sql from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/roles";
 
 const PHOTO_BUCKET = "employee-photos";
 
@@ -11,6 +12,12 @@ export async function uploadEmployeePhoto(
   employeeId: number,
   formData: FormData
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { ok: false, error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
+  }
+
   const file = formData.get("photo") as File | null;
   if (!file || file.size === 0) return { ok: false, error: "กรุณาเลือกไฟล์รูปภาพ" };
   if (!file.type.startsWith("image/")) return { ok: false, error: "รองรับเฉพาะไฟล์รูปภาพ" };
@@ -68,6 +75,8 @@ function extractFields(formData: FormData) {
 }
 
 export async function createEmployee(formData: FormData) {
+  await requireRole("admin");
+
   const f = extractFields(formData);
 
   try {
@@ -95,6 +104,8 @@ export async function createEmployee(formData: FormData) {
 }
 
 export async function updateEmployee(id: number, formData: FormData) {
+  await requireRole("admin");
+
   const f = extractFields(formData);
 
   try {
@@ -133,6 +144,8 @@ export async function updateEmployee(id: number, formData: FormData) {
 }
 
 export async function bulkUpdateGender(formData: FormData) {
+  await requireRole("admin");
+
   const updates: { id: number; gender: "male" | "female" }[] = [];
   for (const [key, value] of formData.entries()) {
     if (!key.startsWith("gender_")) continue;
@@ -160,6 +173,8 @@ export async function bulkUpdateGender(formData: FormData) {
 }
 
 export async function deleteEmployee(id: number) {
+  await requireRole("admin");
+
   try {
     await sql`DELETE FROM employees WHERE id = ${id}`;
   } catch (error) {

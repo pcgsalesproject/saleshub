@@ -4,6 +4,8 @@ import sql from "@/lib/db";
 import type { Employee } from "@/lib/types";
 import s from "./page.module.css";
 import { returnAssetFromEmployee } from "@/lib/actions/assets";
+import { getCurrentRole } from "@/lib/roles";
+import ReturnAssetForm from "@/components/ReturnAssetForm";
 import EmployeeAvatar from "./EmployeeAvatar";
 import CopyableField from "./CopyableField";
 
@@ -78,12 +80,15 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
   const { id } = await props.params;
   const { tab = "profile" } = await props.searchParams ?? {};
 
-  const [employee, allAssets] = await Promise.all([
+  const [employee, allAssets, role] = await Promise.all([
     getEmployee(Number(id)),
     getAssignedAssets(Number(id)),
+    getCurrentRole(),
   ]);
 
   if (!employee) notFound();
+
+  const canViewSensitive = role === "admin";
 
   const currentAssets = allAssets.filter((a) => !a.returned_at);
   const historyAssets = allAssets.filter((a) => a.returned_at);
@@ -205,8 +210,12 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
               <h2 className={s.sectionTitle}><span className={s.titleDot} />ข้อมูลส่วนตัว</h2>
               <FieldRow label="ชื่อ-นามสกุล" value={fullName} />
               <FieldRow label="Name (English)" value={fullNameEn} />
-              <CopyableField label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
-              <FieldRow label="วันเกิด" value={formatDate(employee.date_of_birth)} />
+              {canViewSensitive ? (
+                <CopyableField label="เลขบัตรประชาชน" value={formatNationalId(employee.national_id)} />
+              ) : (
+                <FieldRow label="เลขบัตรประชาชน" value={employee.national_id ? "•••-••••-•••••-••-•" : undefined} />
+              )}
+              <FieldRow label="วันเกิด" value={canViewSensitive ? formatDate(employee.date_of_birth) : undefined} />
               <FieldRow label="อายุ" value={age !== null ? `${age} ปี` : undefined} />
             </div>
             <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
@@ -264,11 +273,7 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
                         <p className={s.assetCode}>{a.asset_type_name ?? "—"} · {a.asset_code ?? "—"}</p>
                       </div>
                       <span className={s.assetDate}>รับ {formatDate(a.assigned_at)}</span>
-                      <form action={returnAction}>
-                        <button type="submit" className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded px-2.5 py-1 ml-3 transition-colors">
-                          คืน
-                        </button>
-                      </form>
+                      <ReturnAssetForm action={returnAction} />
                     </div>
                   );
                 })}

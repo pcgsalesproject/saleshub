@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import sql from "@/lib/db";
 import type { Employee, Department, Position, SalesArea, EmployeeOption } from "@/lib/types";
 import Header from "@/components/Header";
 import EmployeeForm from "../../EmployeeForm";
 import DeleteButton from "../../DeleteButton";
 import { updateEmployee } from "@/lib/actions/employees";
+import { getCurrentRole } from "@/lib/roles";
 
 async function getEmployee(id: number): Promise<Employee | null> {
   const rows = await sql<Employee[]>`
@@ -32,6 +33,10 @@ async function getData(excludeId: number): Promise<{ departments: Department[]; 
 export default async function EditEmployeePage(props: PageProps<"/employees/[id]/edit">) {
   const { id } = await props.params;
   const numId = Number(id);
+
+  const role = await getCurrentRole();
+  if (role !== "admin") redirect(`/employees/${numId}`);
+
   const [employee, { departments, positions, salesAreas, managers }] = await Promise.all([
     getEmployee(numId),
     getData(numId),

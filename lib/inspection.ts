@@ -39,14 +39,20 @@ export async function getInspectionRows(departmentId: number | null, roundId: nu
       GROUP BY employee_id
     ),
     year_checks AS (
-      SELECT ea.employee_id, ac.asset_id, ac.status, ac.checked_at
-      FROM employee_assets ea
-      JOIN asset_checks ac ON ac.asset_id = ea.asset_id
+      -- Attribute each check to the employee who was holding the asset at the
+      -- time it was checked, using a write-time snapshot (inspection session's
+      -- employee_id for batch checks, or asset_checks.holder_employee_id
+      -- captured at insert time for ad-hoc single checks) rather than the
+      -- current live assignment, so a later transfer never re-attributes it.
+      SELECT COALESCE(ins.employee_id, ac.holder_employee_id) AS employee_id, ac.asset_id, ac.status, ac.checked_at
+      FROM asset_checks ac
+      LEFT JOIN inspection_sessions ins ON ins.id = ac.session_id
       WHERE ac.round_id = ${roundId}
     ),
     latest_per_asset AS (
       SELECT DISTINCT ON (employee_id, asset_id) employee_id, asset_id, status, checked_at
       FROM year_checks
+      WHERE employee_id IS NOT NULL
       ORDER BY employee_id, asset_id, checked_at DESC
     ),
     agg AS (

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import sql from "@/lib/db";
 import type { Asset } from "@/lib/types";
 import { returnAsset } from "@/lib/actions/assets";
+import ReturnAssetForm from "@/components/ReturnAssetForm";
 import AssetTagField from "./AssetTagField";
 
 interface AssignmentRow {
@@ -218,13 +219,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
                   </td>
                   <td className="py-3 pr-4 text-gray-500">{h.note || "—"}</td>
                   <td className="py-3 text-right">
-                    {!h.returned_at && (
-                      <form action={returnAction}>
-                        <button type="submit" className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded px-2.5 py-1 transition-colors">
-                          คืน
-                        </button>
-                      </form>
-                    )}
+                    {!h.returned_at && <ReturnAssetForm action={returnAction} />}
                   </td>
                 </tr>
                 );

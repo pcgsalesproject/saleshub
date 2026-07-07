@@ -86,13 +86,19 @@ export default function ReturnForm({ employees, assignments, previewDocNumber }:
 
     startTransition(async () => {
       try {
-        const docNumber = await returnAssets(
+        const result = await returnAssets(
           selectedReturns.map((a) => ({ assignmentId: a.id, condition: a.condition })),
           returnedAt,
           proposedBy?.id ?? null,
           endorsedBy?.id ?? null,
           approvedBy?.id ?? null
         );
+
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        const docNumber = result.docNumber;
 
         const blob = await pdf(
           <AcknowledgeReturnPdf
