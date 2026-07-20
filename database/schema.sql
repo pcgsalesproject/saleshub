@@ -1,5 +1,6 @@
 -- PostgreSQL Schema for SalesHub
 
+DROP TABLE IF EXISTS org_chart_nodes;
 DROP TABLE IF EXISTS asset_checks;
 DROP TABLE IF EXISTS inspection_sessions;
 DROP TABLE IF EXISTS inspection_rounds;
@@ -40,6 +41,7 @@ CREATE TABLE employees (
     prefix_en TEXT,
     first_name_en TEXT,
     last_name_en TEXT,
+    nickname TEXT,
     date_of_birth DATE,
     national_id TEXT UNIQUE,
     phone TEXT,
@@ -164,7 +166,42 @@ CREATE TABLE asset_checks (
     round_id INT REFERENCES inspection_rounds(id)
 );
 
+CREATE TABLE org_chart_nodes (
+    id SERIAL PRIMARY KEY,
+    chart_key TEXT NOT NULL DEFAULT 'sales-admin',
+    parent_id INT REFERENCES org_chart_nodes(id) ON DELETE CASCADE,
+    position INT NOT NULL DEFAULT 0,
+    tag TEXT,
+    is_exec BOOLEAN NOT NULL DEFAULT false,
+    note TEXT,
+    pair_group TEXT,
+    responsibilities TEXT[],
+    employee_id INT REFERENCES employees(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX org_chart_nodes_parent_idx ON org_chart_nodes (parent_id);
+
+-- Seed the fixed Sales Admin structure once: root (Head of Sales Admin) + 4 team-lead slots
+DO $$
+DECLARE
+  root_id INT;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM org_chart_nodes WHERE chart_key = 'sales-admin' AND parent_id IS NULL) THEN
+    INSERT INTO org_chart_nodes (chart_key, parent_id, position, tag, is_exec)
+    VALUES ('sales-admin', NULL, 0, NULL, true)
+    RETURNING id INTO root_id;
+
+    INSERT INTO org_chart_nodes (chart_key, parent_id, position, tag, is_exec) VALUES
+      ('sales-admin', root_id, 0, 'Admin TT', false),
+      ('sales-admin', root_id, 1, 'Admin MT', false),
+      ('sales-admin', root_id, 2, 'Admin CLM', false),
+      ('sales-admin', root_id, 3, 'System Admin', false);
+  END IF;
+END $$;
+
 -- Seed Data (Optional)
-INSERT INTO departments (name) VALUES 
+INSERT INTO departments (name) VALUES
 ('IT'), ('HR'), ('Finance'), ('Operations'), ('Marketing'), ('Management')
 ON CONFLICT DO NOTHING;

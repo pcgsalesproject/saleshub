@@ -13,6 +13,11 @@ body {
   --brand:       #102E5A;
   --brand-dark:  #0b2145;
   --brand-light: #1a4a8a;
+
+  --navy-900:   #102E5A;
+  --coral:      #f0665c;
+  --avatar-blue: #3d6ea5;
+  --line:       #c7cdd6;
 }
 
 /* ─── Form inputs ────────────────────────────────────────── */
@@ -116,4 +121,151 @@ body {
   .card {
     @apply rounded-xl border border-gray-200 bg-white;
   }
+}
+
+/* ─── org tree (detailed org-chart page) ─────────────────── */
+.orgtree {
+  display: inline-block;
+  padding: 24px 8px 8px;
+}
+
+.org-node-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.org-team-tag {
+  margin-bottom: 6px;
+  padding: 3px 14px;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.org-node,
+.org-node-pair {
+  display: inline-flex;
+  min-width: 190px;
+  border-radius: 8px;
+  border-top: 3px solid var(--line);
+  border-left: 1px solid #e4e7ec;
+  border-right: 1px solid #e4e7ec;
+  border-bottom: 1px solid #e4e7ec;
+  background: #fff;
+}
+
+.org-node-pair {
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.org-node-pair-divider {
+  height: 1px;
+  background: #e4e7ec;
+}
+
+/* variants: lead = top of a branch (tag), member = chain below the lead, vacant = open seat */
+.org-node.lead,
+.org-node-pair.lead {
+  border-top-color: var(--coral);
+}
+
+.org-node.member,
+.org-node-pair.member {
+  border-top-color: var(--avatar-blue);
+}
+
+.org-node.vacant,
+.org-node-pair.vacant {
+  border-top-style: dashed;
+  border-left-style: dashed;
+  border-right-style: dashed;
+  border-bottom-style: dashed;
+  border-color: var(--line);
+  background: #f9fafb;
+}
+
+.org-node.exec {
+  border: 1px solid var(--navy-900);
+  background: var(--navy-900);
+}
+
+.org-node.exec .org-name,
+.org-node.exec .org-title {
+  color: #fff;
+}
+
+.org-node.exec .org-avatar {
+  background: #fff;
+  color: var(--navy-900);
+}
+
+.org-person {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  text-align: center;
+}
+
+.org-person.drag-over {
+  background: #eef2f7;
+}
+
+.org-avatar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--avatar-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.org-person.pending .org-avatar {
+  background: #fff;
+  border: 1px dashed var(--line);
+}
+
+.org-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy-900);
+}
+
+.org-vacant {
+  color: var(--coral);
+}
+
+.org-title {
+  font-size: 11px;
+  color: #667085;
+}
+
+.org-node-remove {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  border: none;
+  background: none;
+  color: #98a2b3;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.org-node-remove:hover {
+  color: #f04438;
 }

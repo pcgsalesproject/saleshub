@@ -50,6 +50,38 @@ export interface EmployeeOption {
   name: string;
 }
 
+export interface OrgChartEmployee {
+  id: number;
+  name: string;
+  nickname: string | null;
+  photo_url: string | null;
+  position_name: string | null;
+  department_name: string | null;
+  phone: string | null;
+  email: string | null;
+  is_active: boolean;
+  responsibilities: string[] | null;
+}
+
+export interface OrgChartMember {
+  nodeId: number;
+  employee: OrgChartEmployee | null;
+  note: string | null;
+}
+
+export interface OrgChartNode {
+  id: number;
+  parent_id: number | null;
+  position: number;
+  tag: string | null;
+  is_exec: boolean;
+  note: string | null;
+  employee: OrgChartEmployee | null;
+  /** Present only for a merged pair (e.g. co-managers sharing one box with no connector line between them). */
+  members?: OrgChartMember[];
+  children: OrgChartNode[];
+}
+
 export interface AssetType {
   id: number;
   code: string;

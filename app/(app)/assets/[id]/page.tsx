@@ -8,6 +8,7 @@ import AssetTagField from "./AssetTagField";
 
 interface AssignmentRow {
   id: number;
+  employee_id: number;
   employee_id_str: string;
   employee_name: string;
   assigned_at: string | null;
@@ -33,6 +34,7 @@ async function getHistory(assetId: number): Promise<AssignmentRow[]> {
   return sql<AssignmentRow[]>`
     SELECT
       aa.id,
+      e.id AS employee_id,
       e.employee_id AS employee_id_str,
       TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name,
       aa.assigned_at,
@@ -202,7 +204,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
                 <tr key={h.id} className="border-b border-gray-50 last:border-0">
                   <td className="py-3 pr-4 font-mono text-xs text-gray-500">{h.employee_id_str}</td>
                   <td className="py-3 pr-4 font-medium text-gray-800">
-                    <Link href={`/employees/${h.id}`} className="hover:text-[#102E5A] hover:underline">
+                    <Link href={`/employees/${h.employee_id}`} className="hover:text-[#102E5A] hover:underline">
                       {h.employee_name}
                     </Link>
                   </td>
