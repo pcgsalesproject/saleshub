@@ -344,7 +344,7 @@ export default async function AssetsPage(props: PageProps<"/assets">) {
               {rows.map((asset) => (
                 <tr key={asset.id}>
                   <td>
-                    <span className={s.assetCodeLink}>{asset.asset_tag}</span>
+                    <Link href={`/assets/${asset.id}`} className={s.assetCodeLink}>{asset.asset_tag}</Link>
                   </td>
                   <td>{asset.asset_name}</td>
                   <td>{asset.asset_type_name ?? "—"}</td>

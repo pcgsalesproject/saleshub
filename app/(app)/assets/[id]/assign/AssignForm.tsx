@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { FormActionState } from "@/lib/actions/assets";
 
 interface Employee {
@@ -21,6 +21,16 @@ export default function AssignForm({ action, employees, disabled }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Employee | null>(null);
+
+  // "Today" must match between the server render and the client hydration
+  // render, so start empty (same on both) and fill it in only after mount —
+  // computing `new Date()` directly during render can differ between the
+  // two passes and trip a hydration mismatch.
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setToday(new Date().toISOString().slice(0, 10));
+  }, []);
 
   const filtered = search.length < 1 ? [] : employees.filter((e) => {
     const q = search.toLowerCase();
@@ -94,9 +104,10 @@ export default function AssignForm({ action, employees, disabled }: Props) {
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">วันที่รับทรัพย์สิน</label>
         <input
+          key={today}
           type="date"
           name="assigned_at"
-          defaultValue={new Date().toISOString().slice(0, 10)}
+          defaultValue={today}
           className="input"
         />
       </div>
