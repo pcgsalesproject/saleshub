@@ -2,7 +2,7 @@ import Link from "next/link";
 import sql from "@/lib/db";
 import Header from "@/components/Header";
 import { getOpenRound } from "@/lib/actions/rounds";
-import { getInspectionRows, badgeFor } from "@/lib/inspection";
+import { getInspectionRows, badgeFor, getEmployeeRoundHistory, type RoundHistoryRow } from "@/lib/inspection";
 import RoundBanner from "./RoundBanner";
 import InspectionExplorer from "./InspectionExplorer";
 import InspectionBoard, { type AssignedAsset, type EmployeeDetail } from "./InspectionBoard";
@@ -48,18 +48,21 @@ export default async function NewInspectionPage(props: PageProps<"/inspection/ne
   const employeeId = String(employee_id);
   const departmentId = String(department_id);
 
-  const [departments, openRound, [employeeDetail, assignedAssets]] = await Promise.all([
+  const [departments, openRound, [employeeDetail, assignedAssets, history]] = await Promise.all([
     getDepartments(),
     getOpenRound(),
     employeeId
-      ? Promise.all([getEmployeeDetail(Number(employeeId)), getAssignedAssets(Number(employeeId))])
-      : Promise.resolve([null, []] as [EmployeeDetail | null, AssignedAsset[]]),
+      ? Promise.all([
+          getEmployeeDetail(Number(employeeId)),
+          getAssignedAssets(Number(employeeId)),
+          getEmployeeRoundHistory(Number(employeeId)),
+        ])
+      : Promise.resolve([null, [], []] as [EmployeeDetail | null, AssignedAsset[], RoundHistoryRow[]]),
   ]);
 
-  const rows = await getInspectionRows(
-    departmentId ? Number(departmentId) : null,
-    openRound?.id ?? null
-  );
+  const rows = employeeDetail
+    ? []
+    : await getInspectionRows(departmentId ? Number(departmentId) : null, openRound?.id ?? null);
 
   const stats = rows.reduce(
     (acc, r) => {
@@ -87,12 +90,13 @@ export default async function NewInspectionPage(props: PageProps<"/inspection/ne
         }
       />
 
-      <RoundBanner round={openRound} stats={stats} />
-
       {employeeDetail ? (
-        <InspectionBoard employee={employeeDetail} assets={assignedAssets} />
+        <InspectionBoard employee={employeeDetail} assets={assignedAssets} history={history} />
       ) : (
-        <InspectionExplorer rows={rows} departments={departments} departmentId={departmentId} />
+        <>
+          <RoundBanner round={openRound} stats={stats} />
+          <InspectionExplorer rows={rows} departments={departments} departmentId={departmentId} />
+        </>
       )}
     </div>
   );

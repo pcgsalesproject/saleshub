@@ -42,7 +42,7 @@ export default function RoundBanner({ round, stats }: Props) {
       <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <span className="text-sm text-orange-800">ยังไม่มีรอบการตรวจสอบที่เปิดอยู่ ต้องสร้างก่อนเริ่มตรวจสอบ</span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               type="number"
               value={year}
@@ -88,7 +88,7 @@ export default function RoundBanner({ round, stats }: Props) {
 
   return (
     <div className="flex flex-col lg:flex-row gap-4">
-      <div className="flex-1 rounded-xl border border-gray-100 bg-white p-5">
+      <div className="flex-1 min-w-0 rounded-xl border border-gray-100 bg-white p-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-xs text-gray-400">รอบการตรวจสอบปัจจุบัน</p>
@@ -128,7 +128,7 @@ export default function RoundBanner({ round, stats }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex gap-3">
+      <div className="flex flex-wrap gap-3 lg:flex-shrink-0 lg:justify-end">
         <StatPill
           label="ทั้งหมด"
           value={stats.total}

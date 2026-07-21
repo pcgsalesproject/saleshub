@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { logout } from "@/app/login/actions";
+
+const COLLAPSE_KEY = "sh-sidebar-collapsed";
 
 const navItems = [
   {
@@ -57,16 +59,58 @@ export default function Sidebar() {
   const [openGroup, setOpenGroup] = useState<string | null>(
     () => navItems.find((item) => item.children.some((c) => isChildActive(c.href)))?.label ?? null
   );
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    // Read the persisted preference after mount only: localStorage isn't
+    // available during SSR, so syncing here (once) avoids a hydration
+    // mismatch that an SSR-unsafe lazy initializer would cause.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+  }, []);
 
   function toggleGroup(label: string) {
     setOpenGroup((prev) => (prev === label ? null : label));
   }
 
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
+
   return (
-    <aside className="flex flex-col w-64 min-h-screen bg-[#102E5A] text-white">
-      <div className="flex flex-col items-center px-4 py-5 border-b border-white/10">
+    <aside
+      className={`relative flex flex-col min-h-screen bg-[#102E5A] text-white transition-[width] duration-200 ${
+        collapsed ? "w-20" : "w-64"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
+        className="absolute -right-3 top-8 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#102E5A] shadow-md hover:bg-gray-100 transition-colors z-10"
+      >
+        <svg
+          className={`w-3.5 h-3.5 transition-transform ${collapsed ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
+      <div className="flex flex-col items-center px-4 py-5 border-b border-white/10 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/sidebar_logo.png" alt="Saleshub" className="w-44 object-contain" />
+        <img
+          src="/sidebar_logo.png"
+          alt="Saleshub"
+          className={`object-contain transition-all duration-200 ${collapsed ? "w-8" : "w-44"}`}
+        />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -75,6 +119,7 @@ export default function Sidebar() {
           return (
             <div key={item.label}>
               <div
+                title={collapsed ? item.label : undefined}
                 className={`flex items-center gap-1 rounded-lg text-sm font-medium transition-colors ${
                   open ? "text-white" : "text-white/70"
                 } hover:bg-white/10 hover:text-white`}
@@ -82,29 +127,31 @@ export default function Sidebar() {
                 <Link
                   href={item.overviewHref}
                   onClick={() => setOpenGroup(item.label)}
-                  className="flex items-center gap-3 flex-1 px-3 py-2.5"
+                  className={`flex items-center gap-3 flex-1 px-3 py-2.5 ${collapsed ? "justify-center" : ""}`}
                 >
                   {item.icon}
-                  <span>{item.label}</span>
+                  {!collapsed && <span>{item.label}</span>}
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(item.label)}
-                  aria-label={open ? "Collapse" : "Expand"}
-                  className="px-3 py-2.5"
-                >
-                  <svg
-                    className={`w-4 h-4 transition-transform ${open ? "rotate-90" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.8}
-                    viewBox="0 0 24 24"
+                {!collapsed && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(item.label)}
+                    aria-label={open ? "Collapse" : "Expand"}
+                    className="px-3 py-2.5"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                    <svg
+                      className={`w-4 h-4 transition-transform ${open ? "rotate-90" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.8}
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
               </div>
-              {open && (
+              {open && !collapsed && (
                 <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
                   {item.children.map((child) => {
                     const active = isChildActive(child.href);
@@ -140,15 +187,18 @@ export default function Sidebar() {
         >
           <button
             type="submit"
-            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+            title={collapsed ? "ออกจากระบบ" : undefined}
+            className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors ${
+              collapsed ? "justify-center" : ""
+            }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
             </svg>
-            ออกจากระบบ
+            {!collapsed && "ออกจากระบบ"}
           </button>
         </form>
-        <p className="text-xs text-white/40 text-center">© 2026 PCG Sales Hub</p>
+        {!collapsed && <p className="text-xs text-white/40 text-center">© 2026 PCG Sales Hub</p>}
       </div>
     </aside>
   );

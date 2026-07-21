@@ -62,7 +62,7 @@ function getInitials(name: string) {
 function formatCheckDate(v: string | null) {
   if (!v) return "—";
   const d = new Date(v);
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear() + 543}`;
+  return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear() + 543}`;
 }
 
 function toCsvValue(v: string | number | null) {

@@ -21,3 +21,13 @@ export function badgeFor(row: InspectionRow): InspectionBadge {
   if (row.checked_assets < row.total_assets) return "partial";
   return "ok";
 }
+
+export interface RoundHistoryRow {
+  round_id: number;
+  round_name: string;
+  round_year: number;
+  round_status: "open" | "closed";
+  checked_assets: number;
+  problem_assets: number;
+  last_checked_at: string | null;
+}
