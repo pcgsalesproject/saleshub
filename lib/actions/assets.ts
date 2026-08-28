@@ -175,6 +175,8 @@ export async function peekNextDocumentNumber(): Promise<string> {
   return `ทส.ฝข.${String(nextSeq).padStart(3, "0")}/${buddhistYear}`;
 }
 
+// postgres exposes transaction clients as ISql<{}>; keep the library type here.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export async function getNextDocumentNumber(client: ISql<{}> = sql): Promise<string> {
   const buddhistYear = new Date().getFullYear() + 543;
 

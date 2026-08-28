@@ -3,6 +3,9 @@ import Header from "@/components/Header";
 import sql from "@/lib/db";
 import ViewPdfButton from "../assignments/ViewPdfButton";
 import RecordsFilters from "./RecordsFilters";
+import { clampPage } from "@/lib/pagination";
+
+const PAGE_SIZE = 15;
 
 interface DocumentRow {
   doc_number: string;
@@ -19,9 +22,10 @@ interface DocumentFilters {
   dateTo: string;
   docType: string;
   sort: string;
+  page: number;
 }
 
-async function getDocuments(filters: DocumentFilters): Promise<DocumentRow[]> {
+async function getDocuments(filters: DocumentFilters): Promise<{ rows: DocumentRow[]; total: number; page: number }> {
   const { search, dateFrom, dateTo, docType, sort } = filters;
 
   const like = `%${search}%`;
@@ -37,8 +41,8 @@ async function getDocuments(filters: DocumentFilters): Promise<DocumentRow[]> {
     sort === "employee_desc" ? sql`employee_name DESC` :
     sql`doc_number DESC`;
 
-  return sql<DocumentRow[]>`
-    SELECT * FROM (
+  const baseQuery = sql`
+    FROM (
       SELECT * FROM (
         SELECT DISTINCT ON (aa.doc_number)
           aa.doc_number, 'receive' AS doc_type,
@@ -68,14 +72,67 @@ async function getDocuments(filters: DocumentFilters): Promise<DocumentRow[]> {
       ) return_doc
     ) all_docs
     WHERE 1=1 ${searchCond} ${typeCond} ${fromCond} ${toCond}
-    ORDER BY ${orderBy}
   `;
+
+  const [{ count }] = await sql<{ count: number }[]>`
+    SELECT COUNT(*)::int AS count ${baseQuery}
+  `;
+
+  const page = clampPage(count, PAGE_SIZE, filters.page);
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const rows = await sql<DocumentRow[]>`
+    SELECT * ${baseQuery}
+    ORDER BY ${orderBy}
+    LIMIT ${PAGE_SIZE} OFFSET ${offset}
+  `;
+
+  return { rows, total: count, page };
 }
 
 function formatDate(v?: string | null) {
   if (!v) return "—";
   const d = new Date(v);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+function buildPageHref(filters: DocumentFilters, page: number) {
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
+  if (filters.dateTo) params.set("dateTo", filters.dateTo);
+  if (filters.docType) params.set("docType", filters.docType);
+  if (filters.sort) params.set("sort", filters.sort);
+  if (page > 1) params.set("page", String(page));
+  const qs = params.toString();
+  return `/asset-history${qs ? `?${qs}` : ""}`;
+}
+
+function Pagination({ filters, total, page }: { filters: DocumentFilters; total: number; page: number }) {
+  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+      <span>แสดง {from.toLocaleString()}–{to.toLocaleString()} จาก {total.toLocaleString()} รายการ</span>
+      <div className="flex items-center gap-2">
+        <Link
+          href={buildPageHref(filters, page - 1)}
+          className={`rounded-lg border border-gray-200 px-3 py-1.5 text-gray-700 ${page <= 1 ? "pointer-events-none opacity-40" : "hover:bg-gray-50"}`}
+        >
+          ก่อนหน้า
+        </Link>
+        <span className="text-xs text-gray-400">หน้า {page.toLocaleString()} / {totalPages.toLocaleString()}</span>
+        <Link
+          href={buildPageHref(filters, page + 1)}
+          className={`rounded-lg border border-gray-200 px-3 py-1.5 text-gray-700 ${page >= totalPages ? "pointer-events-none opacity-40" : "hover:bg-gray-50"}`}
+        >
+          ถัดไป
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 export default async function AssetHistoryPage(props: PageProps<"/asset-history">) {
@@ -85,6 +142,7 @@ export default async function AssetHistoryPage(props: PageProps<"/asset-history"
     dateTo = "",
     docType = "",
     sort = "",
+    page: pageParam = "1",
   } = await props.searchParams ?? {};
 
   const filters: DocumentFilters = {
@@ -93,9 +151,10 @@ export default async function AssetHistoryPage(props: PageProps<"/asset-history"
     dateTo: String(dateTo),
     docType: String(docType),
     sort: String(sort),
+    page: Math.max(Number(pageParam) || 1, 1),
   };
 
-  const documents = await getDocuments(filters);
+  const { rows: documents, total, page } = await getDocuments(filters);
 
   return (
     <div>
@@ -124,7 +183,8 @@ export default async function AssetHistoryPage(props: PageProps<"/asset-history"
         {documents.length === 0 ? (
           <p className="text-center text-gray-400 py-16 text-sm">ไม่พบข้อมูล</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[780px] text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left text-xs font-semibold text-gray-500 px-5 py-3 w-36">วันที่</th>
@@ -164,7 +224,9 @@ export default async function AssetHistoryPage(props: PageProps<"/asset-history"
               ))}
             </tbody>
           </table>
+          </div>
         )}
+        <Pagination filters={filters} total={total} page={page} />
       </div>
     </div>
   );

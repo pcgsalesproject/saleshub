@@ -60,7 +60,9 @@ export default function AssetForm({ action, assetTypes, asset }: Props) {
   const assetName = [brand, model].filter(Boolean).join(" ");
 
   const [origin, setOrigin] = useState("");
-  useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
   const checkUrl = origin && assetTag ? `${origin}/assets/check/${assetTag}` : assetTag;
 
   const [phoneNumber, setPhoneNumber] = useState(asset?.phone_number ?? "");

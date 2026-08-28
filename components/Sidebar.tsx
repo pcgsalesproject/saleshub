@@ -83,15 +83,15 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`relative flex flex-col min-h-screen bg-[#102E5A] text-white transition-[width] duration-200 ${
-        collapsed ? "w-20" : "w-64"
+      className={`relative flex flex-col bg-[#102E5A] text-white transition-[width] duration-200 md:min-h-screen ${
+        collapsed ? "w-full md:w-20" : "w-full md:w-64"
       }`}
     >
       <button
         type="button"
         onClick={toggleCollapsed}
         aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
-        className="absolute -right-3 top-8 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#102E5A] shadow-md hover:bg-gray-100 transition-colors z-10"
+        className="absolute right-4 top-8 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#102E5A] shadow-md hover:bg-gray-100 transition-colors z-10 md:-right-3"
       >
         <svg
           className={`w-3.5 h-3.5 transition-transform ${collapsed ? "rotate-180" : ""}`}

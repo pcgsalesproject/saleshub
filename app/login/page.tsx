@@ -1,11 +1,32 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { login } from "./actions";
+
+const REMEMBER_EMAIL_KEY = "saleshub-remember-email";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const rememberRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (rememberedEmail && emailRef.current && rememberRef.current) {
+      emailRef.current.value = rememberedEmail;
+      rememberRef.current.checked = true;
+    }
+  }, []);
+
+  function handleSubmit() {
+    const email = emailRef.current?.value.trim() ?? "";
+    if (rememberRef.current?.checked && email) {
+      localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    } else {
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#102E5A] flex items-center justify-center p-4">
@@ -25,12 +46,13 @@ export default function LoginPage() {
             />
           </div>
 
-          <form action={action} className="space-y-5">
+          <form action={action} onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
               </label>
               <input
+                ref={emailRef}
                 name="email"
                 type="email"
                 autoComplete="email"
@@ -56,6 +78,7 @@ export default function LoginPage() {
 
             <div className="flex items-center gap-2">
               <input
+                ref={rememberRef}
                 id="remember"
                 name="remember"
                 type="checkbox"

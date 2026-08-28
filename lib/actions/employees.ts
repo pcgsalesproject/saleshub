@@ -37,7 +37,7 @@ export async function uploadEmployeePhoto(
 
   const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
 
-  await sql`UPDATE employees SET photo_url = ${data.publicUrl} WHERE id = ${employeeId}`;
+  await sql`UPDATE employees SET photo_url = ${data.publicUrl}, updated_at = NOW() WHERE id = ${employeeId}`;
 
   revalidatePath(`/employees/${employeeId}`);
   revalidatePath("/employees");
@@ -129,7 +129,8 @@ export async function updateEmployee(id: number, formData: FormData) {
         position_id   = ${f.position_id},
         sales_area_id = ${f.sales_area_id},
         manager_id    = ${f.manager_id},
-        is_active     = ${f.is_active}
+        is_active     = ${f.is_active},
+        updated_at    = NOW()
       WHERE id = ${id}
     `;
   } catch (error) {
@@ -157,7 +158,7 @@ export async function bulkUpdateGender(formData: FormData) {
     try {
       await sql.begin(async (tx) => {
         for (const u of updates) {
-          await tx`UPDATE employees SET gender = ${u.gender} WHERE id = ${u.id}`;
+          await tx`UPDATE employees SET gender = ${u.gender}, updated_at = NOW() WHERE id = ${u.id}`;
         }
       });
     } catch (error) {

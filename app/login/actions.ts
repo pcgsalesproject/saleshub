@@ -14,7 +14,7 @@ export async function login(_: unknown, formData: FormData) {
     return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
   }
 
-  redirect("/dashboard");
+  redirect("/sales-admin");
 }
 
 export async function logout() {

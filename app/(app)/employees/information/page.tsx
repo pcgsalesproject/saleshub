@@ -3,16 +3,20 @@ import sql from "@/lib/db";
 import type { Department, Employee } from "@/lib/types";
 import Header from "@/components/Header";
 import EmployeeFilters from "./EmployeeFilters";
+import { clampPage } from "@/lib/pagination";
 import s from "./page.module.css";
+
+const PAGE_SIZE = 12;
 
 interface Filters {
   search: string;
   department: string;
   status: string;
   sort: string;
+  page: number;
 }
 
-async function getEmployees(filters: Filters): Promise<Employee[]> {
+async function getEmployees(filters: Filters): Promise<{ rows: Employee[]; total: number; page: number }> {
   const { search, department, status, sort } = filters;
   const like = `%${search}%`;
 
@@ -31,7 +35,19 @@ async function getEmployees(filters: Filters): Promise<Employee[]> {
     : sort === "newest" ? sql`ORDER BY e.created_at DESC`
     : sql`ORDER BY e.first_name ASC, e.last_name ASC`;
 
-  return sql<Employee[]>`
+  const [{ count }] = await sql<{ count: number }[]>`
+    SELECT COUNT(*)::int AS count
+    FROM employees e
+    WHERE 1=1
+    ${searchCond}
+    ${deptCond}
+    ${statusCond}
+  `;
+
+  const page = clampPage(count, PAGE_SIZE, filters.page);
+  const offset = (page - 1) * PAGE_SIZE;
+
+  const rows = await sql<Employee[]>`
     SELECT e.*, d.name AS department_name, p.position AS position_name,
            sa.area_name AS sales_area_name
     FROM employees e
@@ -43,7 +59,10 @@ async function getEmployees(filters: Filters): Promise<Employee[]> {
     ${deptCond}
     ${statusCond}
     ${orderBy}
+    LIMIT ${PAGE_SIZE} OFFSET ${offset}
   `;
+
+  return { rows, total: count, page };
 }
 
 async function getDepartments(): Promise<Department[]> {
@@ -65,12 +84,45 @@ function Avatar({ name, photoUrl }: { name: string; photoUrl: string | null }) {
   );
 }
 
+function buildPageHref(filters: Filters, page: number) {
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  if (filters.department) params.set("department", filters.department);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.sort && filters.sort !== "name_asc") params.set("sort", filters.sort);
+  if (page > 1) params.set("page", String(page));
+  const qs = params.toString();
+  return `/employees/information${qs ? `?${qs}` : ""}`;
+}
+
+function Pagination({ filters, total, page }: { filters: Filters; total: number; page: number }) {
+  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+
+  return (
+    <div className={s.pagination}>
+      <span>แสดง {from.toLocaleString()}–{to.toLocaleString()} จาก {total.toLocaleString()} รายการ</span>
+      <div className={s.pageBtns}>
+        <Link href={buildPageHref(filters, page - 1)} className={`${s.pageBtn} ${page <= 1 ? s.pageBtnDisabled : ""}`}>
+          ก่อนหน้า
+        </Link>
+        <span className={s.pageSummary}>หน้า {page.toLocaleString()} / {totalPages.toLocaleString()}</span>
+        <Link href={buildPageHref(filters, page + 1)} className={`${s.pageBtn} ${page >= totalPages ? s.pageBtnDisabled : ""}`}>
+          ถัดไป
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default async function EmployeeInformationPage(props: PageProps<"/employees/information">) {
   const {
     search = "",
     department = "",
     status = "",
     sort = "name_asc",
+    page: pageParam = "1",
   } = await props.searchParams ?? {};
 
   const filters: Filters = {
@@ -78,9 +130,10 @@ export default async function EmployeeInformationPage(props: PageProps<"/employe
     department: String(department),
     status: String(status),
     sort: String(sort),
+    page: Math.max(Number(pageParam) || 1, 1),
   };
 
-  const [employees, departments] = await Promise.all([
+  const [{ rows: employees, total, page }, departments] = await Promise.all([
     getEmployees(filters),
     getDepartments(),
   ]);
@@ -89,7 +142,7 @@ export default async function EmployeeInformationPage(props: PageProps<"/employe
     <div>
       <Header
         title="พนักงาน"
-        subtitle={`${employees.length} รายการ`}
+        subtitle={`${total.toLocaleString()} รายการ`}
         actions={
           <Link href="/employees/new" className="btn-primary">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -156,6 +209,7 @@ export default async function EmployeeInformationPage(props: PageProps<"/employe
           })}
         </div>
       )}
+      <Pagination filters={filters} total={total} page={page} />
     </div>
   );
 }
