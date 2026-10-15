@@ -8,6 +8,7 @@ import { getCurrentRole } from "@/lib/roles";
 import ReturnAssetForm from "@/components/ReturnAssetForm";
 import EmployeeAvatar from "./EmployeeAvatar";
 import CopyableField from "./CopyableField";
+import KpiCards from "./KpiCards";
 
 interface AssignedAsset {
   id: number;
@@ -15,6 +16,8 @@ interface AssignedAsset {
   asset_tag: string;
   asset_name: string;
   asset_code: string | null;
+  serial_number: string | null;
+  phone_number: string | null;
   asset_type_name: string | null;
   assigned_at: string | null;
   returned_at: string | null;
@@ -22,7 +25,7 @@ interface AssignedAsset {
 
 async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
   return sql<AssignedAsset[]>`
-    SELECT aa.id, a.id AS asset_id, a.asset_tag, a.asset_name, a.asset_code,
+    SELECT aa.id, a.id AS asset_id, a.asset_tag, a.asset_name, a.asset_code, a.serial_number, a.phone_number,
            at.name AS asset_type_name, aa.assigned_at, aa.returned_at
     FROM asset_assignments aa
     JOIN assets a ON aa.asset_id = a.id
@@ -110,13 +113,16 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
   }
 
   const now = new Date();
-  const start = new Date(employee.start_date ?? employee.created_at);
-  const totalMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-  const tenureYears = Math.floor(totalMonths / 12);
-  const tenureMonths = totalMonths % 12;
-  const tenureText = totalMonths < 1 ? "< 1 เดือน"
-    : tenureYears > 0 ? `${tenureYears} ปี ${tenureMonths} เดือน`
-    : `${tenureMonths} เดือน`;
+  let tenureText = "—";
+  if (employee.start_date) {
+    const start = new Date(employee.start_date);
+    const totalMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    const tenureYears = Math.floor(totalMonths / 12);
+    const tenureMonths = totalMonths % 12;
+    tenureText = totalMonths < 1 ? "< 1 เดือน"
+      : tenureYears > 0 ? `${tenureYears} ปี ${tenureMonths} เดือน`
+      : `${tenureMonths} เดือน`;
+  }
 
   return (
     <div className={s.pageWrap}>
@@ -158,30 +164,19 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
         </div>
 
         {/* KPI cards */}
-        <div className={s.kpiWrap}>
-          <div className={s.kpiCard}>
-            <div className={`${s.kpiIcon} ${s.kpiIconGreen}`}>
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className={s.kpiValue}>{tenureText}</p>
-              <p className={s.kpiLabel}>อายุงาน</p>
-            </div>
-          </div>
-          <div className={s.kpiCard}>
-            <div className={`${s.kpiIcon} ${s.kpiIconBlue}`}>
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 7.409A2.25 2.25 0 012.25 5.493V5.25" />
-              </svg>
-            </div>
-            <div>
-              <p className={s.kpiValue}>{currentAssets.length}</p>
-              <p className={s.kpiLabel}>ทรัพย์สินที่ถือครอง</p>
-            </div>
-          </div>
-        </div>
+        <KpiCards
+          tenureText={tenureText}
+          startDate={formatDate(employee.start_date) ?? null}
+          assets={currentAssets.map((a) => ({
+            id: a.id,
+            asset_id: a.asset_id,
+            asset_name: a.asset_name,
+            asset_type_name: a.asset_type_name,
+            serial_number: a.serial_number,
+            phone_number: a.phone_number,
+            assigned_at: formatDate(a.assigned_at) ?? null,
+          }))}
+        />
 
         <nav className={s.nav}>
           <Link href={`/employees/${employee.id}`} className={`${s.navItem} ${!isAssignTab ? s.navItemActive : ""}`}>
@@ -270,7 +265,9 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
                         <Link href={`/assets/${a.asset_id}`} className="hover:text-[#102E5A] hover:underline">
                           <p className={s.assetName}>{a.asset_name}</p>
                         </Link>
-                        <p className={s.assetCode}>{a.asset_type_name ?? "—"} · {a.asset_code ?? "—"}</p>
+                        <p className={s.assetCode}>Type: {a.asset_type_name ?? "—"}</p>
+                        <p className={s.assetCode}>Serial Number: {a.serial_number ?? "—"}</p>
+                        <p className={s.assetCode}>หมายเลข: {a.phone_number ?? "—"}</p>
                       </div>
                       <span className={s.assetDate}>รับ {formatDate(a.assigned_at)}</span>
                       <ReturnAssetForm action={returnAction} />
@@ -305,7 +302,9 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
                         <Link href={`/assets/${a.asset_id}`} className="font-medium text-gray-800 hover:text-[#102E5A] hover:underline">
                           {a.asset_name}
                         </Link>
-                        <p className="text-xs text-gray-400 mt-0.5">{a.asset_type_name ?? "—"} · {a.asset_code ?? "—"}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Type: {a.asset_type_name ?? "—"}</p>
+                        <p className="text-xs text-gray-400">Serial Number: {a.serial_number ?? "—"}</p>
+                        <p className="text-xs text-gray-400">หมายเลข: {a.phone_number ?? "—"}</p>
                       </td>
                       <td className="py-3 pr-4 text-gray-600">{formatDate(a.assigned_at)}</td>
                       <td className="py-3 text-gray-600">{formatDate(a.returned_at)}</td>
