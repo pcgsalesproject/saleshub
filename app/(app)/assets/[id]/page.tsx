@@ -221,7 +221,13 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
                   </td>
                   <td className="py-3 pr-4 text-gray-500">{h.note || "—"}</td>
                   <td className="py-3 text-right">
-                    {!h.returned_at && <ReturnAssetForm action={returnAction} />}
+                    {!h.returned_at && <ReturnAssetForm
+                        action={returnAction}
+                        employeeName={h.employee_name}
+                        assetName={asset.asset_name}
+                        assetTypeName={asset.asset_type_name}
+                        serialNumber={asset.serial_number}
+                      />}
                   </td>
                 </tr>
                 );

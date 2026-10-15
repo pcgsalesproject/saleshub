@@ -270,7 +270,13 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
                         <p className={s.assetCode}>หมายเลข: {a.phone_number ?? "—"}</p>
                       </div>
                       <span className={s.assetDate}>รับ {formatDate(a.assigned_at)}</span>
-                      <ReturnAssetForm action={returnAction} />
+                      <ReturnAssetForm
+                        action={returnAction}
+                        employeeName={fullName}
+                        assetName={a.asset_name}
+                        assetTypeName={a.asset_type_name}
+                        serialNumber={a.serial_number}
+                      />
                     </div>
                   );
                 })}

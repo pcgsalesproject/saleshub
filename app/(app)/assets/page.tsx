@@ -15,12 +15,53 @@ interface AssetStats {
   expiring_soon: number;
 }
 
-async function getStats(): Promise<AssetStats> {
+interface Filters {
+  search: string;
+  type: string;
+  status: string;
+  page: number;
+}
+
+// Shared by the table, the KPI cards and the expiring list so they all follow the same filters.
+// Expects the asset table aliased as `a` and the LATERAL current-assignment as `cur`.
+function filterConds({ search, type, status }: Filters) {
+  const like = `%${search}%`;
+  return {
+    searchCond: search
+      ? sql`AND (a.asset_tag ILIKE ${like} OR a.asset_code ILIKE ${like} OR a.asset_name ILIKE ${like} OR a.serial_number ILIKE ${like} OR a.phone_number ILIKE ${like})`
+      : sql``,
+    typeCond: type ? sql`AND a.asset_type_id = ${Number(type)}` : sql``,
+    statusCond: status ? sql`AND base.computed_status = ${status}` : sql``,
+  };
+}
+
+async function getStats(filters: Filters): Promise<AssetStats> {
+  const { searchCond, typeCond, statusCond } = filterConds(filters);
   const [row] = await sql<AssetStats[]>`
     SELECT
-      (SELECT COUNT(*) FROM assets)::int AS total,
-      (SELECT COUNT(DISTINCT asset_id) FROM asset_assignments WHERE returned_at IS NULL)::int AS assigned,
-      (SELECT COUNT(*) FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry >= CURRENT_DATE AND warranty_expiry <= CURRENT_DATE + INTERVAL '30 days')::int AS expiring_soon
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE base.computed_status = 'assigned')::int AS assigned,
+      COUNT(*) FILTER (
+        WHERE base.warranty_expiry IS NOT NULL
+          AND base.warranty_expiry >= CURRENT_DATE
+          AND base.warranty_expiry <= CURRENT_DATE + INTERVAL '30 days'
+      )::int AS expiring_soon
+    FROM (
+      SELECT a.id, a.warranty_expiry,
+        CASE
+          WHEN cur.employee_id IS NOT NULL THEN 'assigned'
+          WHEN a.status = 'repair' THEN 'repair'
+          ELSE 'available'
+        END AS computed_status
+      FROM assets a
+      LEFT JOIN LATERAL (
+        SELECT aa.employee_id FROM asset_assignments aa
+        WHERE aa.asset_id = a.id AND aa.returned_at IS NULL
+        ORDER BY aa.assigned_at DESC LIMIT 1
+      ) cur ON true
+      WHERE 1=1 ${searchCond} ${typeCond}
+    ) base
+    WHERE 1=1 ${statusCond}
   `;
   return row;
 }
@@ -34,18 +75,34 @@ export interface ExpiringAsset {
   employee_name: string | null;
 }
 
-async function getExpiringAssets(): Promise<ExpiringAsset[]> {
+async function getExpiringAssets(filters: Filters): Promise<ExpiringAsset[]> {
+  const { searchCond, typeCond, statusCond } = filterConds(filters);
   return sql<ExpiringAsset[]>`
-    SELECT a.id, a.asset_tag, a.asset_name, at.name AS asset_type_name, a.warranty_expiry,
+    SELECT base.id, base.asset_tag, base.asset_name, base.asset_type_name, base.warranty_expiry,
       TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name
-    FROM assets a
-    LEFT JOIN asset_types at ON a.asset_type_id = at.id
-    LEFT JOIN asset_assignments aa ON aa.asset_id = a.id AND aa.returned_at IS NULL
-    LEFT JOIN employees e ON e.id = aa.employee_id
-    WHERE a.warranty_expiry IS NOT NULL
-      AND a.warranty_expiry >= CURRENT_DATE
-      AND a.warranty_expiry <= CURRENT_DATE + INTERVAL '30 days'
-    ORDER BY a.warranty_expiry ASC
+    FROM (
+      SELECT a.id, a.asset_tag, a.asset_name, at.name AS asset_type_name, a.warranty_expiry,
+        cur.employee_id,
+        CASE
+          WHEN cur.employee_id IS NOT NULL THEN 'assigned'
+          WHEN a.status = 'repair' THEN 'repair'
+          ELSE 'available'
+        END AS computed_status
+      FROM assets a
+      LEFT JOIN asset_types at ON a.asset_type_id = at.id
+      LEFT JOIN LATERAL (
+        SELECT aa.employee_id FROM asset_assignments aa
+        WHERE aa.asset_id = a.id AND aa.returned_at IS NULL
+        ORDER BY aa.assigned_at DESC LIMIT 1
+      ) cur ON true
+      WHERE a.warranty_expiry IS NOT NULL
+        AND a.warranty_expiry >= CURRENT_DATE
+        AND a.warranty_expiry <= CURRENT_DATE + INTERVAL '30 days'
+        ${searchCond} ${typeCond}
+    ) base
+    LEFT JOIN employees e ON e.id = base.employee_id
+    WHERE 1=1 ${statusCond}
+    ORDER BY base.warranty_expiry ASC
   `;
 }
 
@@ -94,30 +151,13 @@ interface AssetRow extends Asset {
   computed_status: "assigned" | "available" | "repair";
 }
 
-interface Filters {
-  search: string;
-  type: string;
-  status: string;
-  page: number;
-}
-
 async function getAssetTypes(): Promise<AssetType[]> {
   return sql<AssetType[]>`SELECT id, code, name FROM asset_types ORDER BY name`;
 }
 
 async function getAssets(filters: Filters): Promise<{ rows: AssetRow[]; total: number }> {
-  const { search, type, status, page } = filters;
-  const like = `%${search}%`;
-
-  const searchCond = search
-    ? sql`AND (a.asset_tag ILIKE ${like} OR a.asset_code ILIKE ${like} OR a.asset_name ILIKE ${like} OR a.serial_number ILIKE ${like} OR a.phone_number ILIKE ${like})`
-    : sql``;
-
-  const typeCond = type ? sql`AND a.asset_type_id = ${Number(type)}` : sql``;
-
-  const statusCond = status
-    ? sql`AND base.computed_status = ${status}`
-    : sql``;
+  const { page } = filters;
+  const { searchCond, typeCond, statusCond } = filterConds(filters);
 
   const offset = (page - 1) * PAGE_SIZE;
 
@@ -139,7 +179,7 @@ async function getAssets(filters: Filters): Promise<{ rows: AssetRow[]; total: n
       WHERE 1=1 ${searchCond} ${typeCond}
     ) base
     WHERE 1=1 ${statusCond}
-    ORDER BY base.asset_code
+    ORDER BY base.id
     LIMIT ${PAGE_SIZE} OFFSET ${offset}
   `;
 
@@ -251,9 +291,9 @@ export default async function AssetsPage(props: PageProps<"/assets">) {
 
   const [assetTypes, stats, { rows, total }, expiringAssets] = await Promise.all([
     getAssetTypes(),
-    getStats(),
+    getStats(filters),
     getAssets(filters),
-    getExpiringAssets(),
+    getExpiringAssets(filters),
   ]);
   const available = Math.max(stats.total - stats.assigned, 0);
 

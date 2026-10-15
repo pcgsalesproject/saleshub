@@ -551,6 +551,12 @@ export async function returnAssetFromEmployee(
     return { error: "คุณไม่มีสิทธิ์ดำเนินการนี้" };
   }
 
+  if (!Number.isInteger(assignmentId) || !Number.isInteger(employeeId)) {
+    return { error: "ข้อมูลไม่ถูกต้อง" };
+  }
+
+  // Single conditional UPDATE: atomic, and only matches an assignment that still
+  // belongs to this employee and has not been returned. History row is kept.
   const result = await sql`
     UPDATE asset_assignments
     SET returned_at = NOW()
