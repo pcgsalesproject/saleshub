@@ -19,6 +19,17 @@ async function getAsset(tag: string): Promise<Asset | null> {
   return rows[0] ?? null;
 }
 
+async function getHolderName(assetId: number): Promise<string | null> {
+  const rows = await sql<{ name: string }[]>`
+    SELECT TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS name
+    FROM asset_assignments aa
+    JOIN employees e ON e.id = aa.employee_id
+    WHERE aa.asset_id = ${assetId} AND aa.returned_at IS NULL
+    LIMIT 1
+  `;
+  return rows[0]?.name ?? null;
+}
+
 async function getChecks(assetId: number): Promise<CheckRow[]> {
   return sql<CheckRow[]>`
     SELECT ac.*, TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS checked_by_name
@@ -49,7 +60,7 @@ export default async function AssetCheckPage(props: PageProps<"/assets/check/[ta
 
   if (!asset) notFound();
 
-  const checks = await getChecks(asset.id);
+  const [checks, holderName] = await Promise.all([getChecks(asset.id), getHolderName(asset.id)]);
   const action = createAssetCheck.bind(null, asset.id, `/assets/check/${asset.asset_tag}`);
 
   return (
@@ -83,6 +94,7 @@ export default async function AssetCheckPage(props: PageProps<"/assets/check/[ta
           <Field label="ชื่อทรัพย์สิน" value={asset.asset_name} />
           <Field label="ยี่ห้อ / รุ่น" value={[asset.brand, asset.model].filter(Boolean).join(" ") || null} />
           <Field label="หมายเลขซีเรียล" value={asset.serial_number} />
+          <Field label="ผู้ถือครอง" value={holderName} />
         </div>
 
         {/* Check form */}
