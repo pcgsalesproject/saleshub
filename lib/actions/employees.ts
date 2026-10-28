@@ -109,7 +109,9 @@ export async function updateEmployee(id: number, formData: FormData) {
   const f = extractFields(formData);
 
   try {
-    await sql`
+    await sql.begin(async (tx) => {
+    const [prev] = await tx`SELECT phone FROM employees WHERE id = ${id}`;
+    await tx`
       UPDATE employees SET
         employee_id   = ${f.employee_id},
         prefix_th     = ${f.prefix_th},
@@ -133,6 +135,15 @@ export async function updateEmployee(id: number, formData: FormData) {
         updated_at    = NOW()
       WHERE id = ${id}
     `;
+    // Move the old number to the new one only on held assets that carried the employee's old number
+    if (prev?.phone && f.phone && prev.phone.trim() !== f.phone.trim()) {
+      await tx`
+        UPDATE assets SET phone_number = ${f.phone}, updated_at = NOW()
+        WHERE btrim(phone_number) = ${prev.phone.trim()}
+          AND id IN (SELECT asset_id FROM asset_assignments WHERE employee_id = ${id} AND returned_at IS NULL)
+      `;
+    }
+    });
   } catch (error) {
     console.error("Failed to update employee:", error);
     throw new Error("ไม่สามารถอัปเดตข้อมูลพนักงานได้ อาจมีรหัสพนักงานหรือข้อมูลบางอย่างซ้ำในระบบ");
@@ -141,6 +152,7 @@ export async function updateEmployee(id: number, formData: FormData) {
   revalidatePath("/employees");
   revalidatePath("/employees/information");
   revalidatePath(`/employees/${id}`);
+  revalidatePath("/assets");
   redirect("/employees/information");
 }
 

@@ -696,7 +696,9 @@ export async function updateAsset(id: number, formData: FormData) {
   const f = extractFields(formData);
 
   try {
-    await sql`
+    await sql.begin(async (tx) => {
+    const [prev] = await tx`SELECT phone_number FROM assets WHERE id = ${id}`;
+    await tx`
       UPDATE assets SET
         asset_tag           = ${f.asset_tag},
         asset_code          = ${f.asset_code},
@@ -717,11 +719,22 @@ export async function updateAsset(id: number, formData: FormData) {
         updated_at          = NOW()
       WHERE id = ${id}
     `;
+    // Update the holder's phone only if it was the same number as this asset's old one
+    if (prev?.phone_number && f.phone_number && prev.phone_number.trim() !== f.phone_number.trim()) {
+      await tx`
+        UPDATE employees SET phone = ${f.phone_number}, updated_at = NOW()
+        WHERE btrim(phone) = ${prev.phone_number.trim()}
+          AND id IN (SELECT employee_id FROM asset_assignments WHERE asset_id = ${id} AND returned_at IS NULL)
+      `;
+    }
+    });
   } catch (error) {
     console.error("Failed to update asset:", error);
     throw new Error("ไม่สามารถอัปเดตทรัพย์สินได้ อาจมีข้อมูลบางอย่างซ้ำในระบบ");
   }
 
+  revalidatePath("/employees");
+  revalidatePath("/employees/information");
   revalidatePath("/assets");
   redirect("/assets");
 }
