@@ -5,7 +5,7 @@ import { getOpenRound } from "@/lib/actions/rounds";
 import { getInspectionRows, badgeFor, getEmployeeRoundHistory, type RoundHistoryRow } from "@/lib/inspection";
 import RoundBanner from "./RoundBanner";
 import InspectionExplorer from "./InspectionExplorer";
-import InspectionBoard, { type AssignedAsset, type EmployeeDetail } from "./InspectionBoard";
+import InspectionBoard, { type AssignedAsset, type EmployeeDetail, type ExistingCheck } from "./InspectionBoard";
 
 interface Department {
   id: number;
@@ -43,6 +43,20 @@ async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
   `;
 }
 
+// Latest result per asset already saved for this employee in the open round,
+// so a partially-finished inspection can be resumed instead of restarted.
+async function getExistingChecks(employeeId: number, roundId: number | null): Promise<ExistingCheck[]> {
+  if (!roundId) return [];
+  return sql<ExistingCheck[]>`
+    SELECT DISTINCT ON (ac.asset_id) ac.asset_id AS "assetId", ac.status, ac.comment
+    FROM asset_checks ac
+    LEFT JOIN inspection_sessions ins ON ins.id = ac.session_id
+    WHERE ac.round_id = ${roundId}
+      AND COALESCE(ins.employee_id, ac.holder_employee_id) = ${employeeId}
+    ORDER BY ac.asset_id, ac.checked_at DESC
+  `;
+}
+
 export default async function NewInspectionPage(props: PageProps<"/inspection/new">) {
   const { employee_id = "", department_id = "" } = await props.searchParams ?? {};
   const employeeId = String(employee_id);
@@ -59,6 +73,8 @@ export default async function NewInspectionPage(props: PageProps<"/inspection/ne
         ])
       : Promise.resolve([null, [], []] as [EmployeeDetail | null, AssignedAsset[], RoundHistoryRow[]]),
   ]);
+
+  const existingChecks = employeeDetail ? await getExistingChecks(employeeDetail.id, openRound?.id ?? null) : [];
 
   const rows = employeeDetail
     ? []
@@ -91,7 +107,7 @@ export default async function NewInspectionPage(props: PageProps<"/inspection/ne
       />
 
       {employeeDetail ? (
-        <InspectionBoard employee={employeeDetail} assets={assignedAssets} history={history} />
+        <InspectionBoard employee={employeeDetail} assets={assignedAssets} history={history} existing={existingChecks} />
       ) : (
         <>
           <RoundBanner round={openRound} stats={stats} />

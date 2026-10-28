@@ -28,10 +28,17 @@ export interface AssignedAsset {
   serial_number: string | null;
 }
 
+export interface ExistingCheck {
+  assetId: number;
+  status: string;
+  comment: string | null;
+}
+
 interface Props {
   employee: EmployeeDetail;
   assets: AssignedAsset[];
   history: RoundHistoryRow[];
+  existing: ExistingCheck[];
 }
 
 type StatusValue = "found" | "missing" | "damaged";
@@ -70,10 +77,22 @@ function StatCard({ label, value, cls }: { label: string; value: number; cls: st
   );
 }
 
-export default function InspectionBoard({ employee, assets, history }: Props) {
+export default function InspectionBoard({ employee, assets, history, existing }: Props) {
   const router = useRouter();
+  // Resume the open round while it's incomplete: earlier results are shown and locked.
+  // Once every asset has been checked, the form starts fresh for a new inspection.
+  const existingById = new Map(existing.map((e) => [e.assetId, e]));
+  const savedCount = assets.filter((a) => existingById.has(a.id)).length;
+  const resuming = savedCount > 0 && savedCount < assets.length;
+  const lockedIds = new Set(resuming ? assets.filter((a) => existingById.has(a.id)).map((a) => a.id) : []);
+
   const [rows, setRows] = useState<Record<number, { status: StatusValue | null; comment: string }>>(
-    () => Object.fromEntries(assets.map((a) => [a.id, { status: null, comment: "" }]))
+    () => Object.fromEntries(
+      assets.map((a) => {
+        const prev = resuming ? existingById.get(a.id) : undefined;
+        return [a.id, { status: (prev?.status as StatusValue | undefined) ?? null, comment: prev?.comment ?? "" }];
+      })
+    )
   );
   const [overallComment, setOverallComment] = useState("");
   const [pending, setPending] = useState(false);
@@ -84,7 +103,9 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
   const checkedCount = assets.filter((a) => rows[a.id]?.status).length;
   const missingCount = assets.filter((a) => rows[a.id]?.status === "missing").length;
   const damagedCount = assets.filter((a) => rows[a.id]?.status === "damaged").length;
-  const allFilled = total > 0 && checkedCount === total;
+  const newCount = assets.filter((a) => !lockedIds.has(a.id) && rows[a.id]?.status).length;
+  const canSave = newCount > 0;
+  const isPartial = checkedCount > 0 && checkedCount < total;
 
   const currentRound = history.find((h) => h.round_status === "open");
 
@@ -103,17 +124,19 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
   }
 
   async function handleSave() {
-    if (!allFilled) return;
+    if (!canSave) return;
     setPending(true);
     setError(null);
     const result = await createAssetChecksBatch(
       employee.id,
       overallComment || null,
-      assets.map((a) => ({
-        assetId: a.id,
-        status: rows[a.id].status as string,
-        comment: rows[a.id].comment || null,
-      }))
+      assets
+        .filter((a) => !lockedIds.has(a.id) && rows[a.id].status)
+        .map((a) => ({
+          assetId: a.id,
+          status: rows[a.id].status as string,
+          comment: rows[a.id].comment || null,
+        }))
     );
     setPending(false);
     if (!result.ok) {
@@ -166,10 +189,14 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
               สถานะการตรวจสอบ{" "}
               <span
                 className={`inline-flex items-center font-medium rounded-full px-2 py-0.5 whitespace-nowrap ${
-                  currentRound.checked_assets > 0 ? "text-green-700 bg-green-50" : "text-orange-700 bg-orange-50"
+                  currentRound.checked_assets === 0
+                    ? "text-orange-700 bg-orange-50"
+                    : currentRound.checked_assets < total
+                      ? "text-yellow-700 bg-yellow-50"
+                      : "text-green-700 bg-green-50"
                 }`}
               >
-                {currentRound.checked_assets > 0 ? "ตรวจสอบแล้ว" : "ยังไม่ได้ตรวจ"} {currentRound.round_name} (
+                {currentRound.checked_assets === 0 ? "ยังไม่ได้ตรวจ" : currentRound.checked_assets < total ? "ตรวจบางส่วน" : "ตรวจสอบแล้ว"} {currentRound.round_name} (
                 {currentRound.round_year + 543})
               </span>
             </p>
@@ -225,7 +252,7 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
                             </svg>
                           )}
                           <span className="font-medium text-gray-800 whitespace-nowrap">
-                            {notStarted ? "ยังไม่ได้ตรวจ" : hasProblem ? "ไม่พบ/เสียหาย" : "ตรวจสอบแล้ว"}
+                            {notStarted ? "ยังไม่ได้ตรวจ" : hasProblem ? "ไม่พบ/เสียหาย" : h.round_status === "open" && h.checked_assets < total ? "ตรวจบางส่วน" : "ตรวจสอบแล้ว"}
                           </span>
                         </div>
                         {!notStarted && (
@@ -325,6 +352,7 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
               <tbody>
                 {assets.map((a, i) => {
                   const row = rows[a.id];
+                  const locked = lockedIds.has(a.id);
                   return (
                     <tr key={a.id} className="border-b border-gray-50 last:border-0">
                       <td className="py-3 pr-4 text-gray-400 align-top">{i + 1}</td>
@@ -344,11 +372,12 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
                           {(Object.keys(STATUS_META) as StatusValue[]).map((s) => {
                             const checked = row.status === s;
                             return (
-                              <label key={s} className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer whitespace-nowrap">
+                              <label key={s} className={`flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap ${locked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
                                 <input
                                   type="radio"
                                   name={`status-${a.id}`}
                                   checked={checked}
+                                  disabled={locked}
                                   onChange={() => setStatus(a.id, s)}
                                   className="sr-only"
                                 />
@@ -368,7 +397,7 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
                       <td className="py-3 pr-4 align-top">
                         {row.status ? (
                           <span className={`inline-flex items-center text-xs font-medium rounded-full px-2.5 py-1 border whitespace-nowrap ${STATUS_META[row.status].badge}`}>
-                            {STATUS_META[row.status].label}
+                            {STATUS_META[row.status].label}{locked ? " · บันทึกแล้ว" : ""}
                           </span>
                         ) : (
                           <span className="inline-flex items-center text-xs font-medium rounded-full px-2.5 py-1 border bg-gray-50 text-gray-400 border-gray-200 whitespace-nowrap">
@@ -381,6 +410,7 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
                           value={row.comment}
                           onChange={(e) => setComment(a.id, e.target.value.slice(0, COMMENT_MAX))}
                           maxLength={COMMENT_MAX}
+                          readOnly={locked}
                           rows={2}
                           placeholder="ระบุหมายเหตุ (ถ้ามี)"
                           className="input w-48 resize-none"
@@ -414,6 +444,12 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
       <div className="flex items-center justify-between gap-4 flex-wrap bg-white border border-gray-200 rounded-xl px-6 py-4 sticky bottom-4">
         <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600">
           สรุปผลการตรวจสอบ: ตรวจสอบแล้ว {checkedCount}/{total} รายการ
+          {resuming && <span className="text-xs text-gray-400">(ต่อจากรอบตรวจเดิม บันทึกไว้แล้ว {savedCount} รายการ)</span>}
+          {isPartial && (
+            <span className="text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full px-2 py-0.5">
+              ตรวจบางส่วน
+            </span>
+          )}
           {missingCount > 0 && (
             <span className="text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
               ไม่พบ {missingCount} รายการ
@@ -436,7 +472,7 @@ export default function InspectionBoard({ employee, assets, history }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={!allFilled || pending}
+            disabled={!canSave || pending}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {pending ? "กำลังบันทึก…" : "บันทึกผลการตรวจสอบ"}
