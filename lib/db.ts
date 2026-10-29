@@ -5,18 +5,13 @@ declare global {
   var _sql: ReturnType<typeof postgres> | undefined;
 }
 
-// Use the Supabase transaction pooler (6543) instead of session mode (5432), which caps
-// clients at pool_size 15 and is exhausted quickly by serverless instances.
-const connectionString = process.env.DATABASE_URL!.replace(
-  /(\.pooler\.supabase\.com):5432\b/,
-  '$1:6543'
-);
-
+// Session pooler (5432). The transaction pooler (6543) hangs when pages fire several
+// queries concurrently (Promise.all), so stay on session mode and keep one connection
+// per serverless instance in production to limit pool usage.
 const isProd = process.env.NODE_ENV === 'production';
 
-const sql = globalThis._sql ?? postgres(connectionString, {
+const sql = globalThis._sql ?? postgres(process.env.DATABASE_URL!, {
   ssl: 'require',
-  prepare: false, // required by Supabase transaction pooler (port 6543)
   max: isProd ? 1 : 3,
   idle_timeout: 20,
   max_lifetime: 60 * 30,
