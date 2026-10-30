@@ -10,7 +10,7 @@ interface Props {
   action: (formData: FormData) => Promise<void>;
   assetTypes: AssetType[];
   asset?: Asset;
-  isAssigned?: boolean;
+  holderName?: string | null;
 }
 
 function Card({
@@ -78,7 +78,8 @@ function formatPhoneNumber(value: string) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
-export default function AssetForm({ action, assetTypes, asset, isAssigned }: Props) {
+export default function AssetForm({ action, assetTypes, asset, holderName }: Props) {
+  const isAssigned = !!holderName;
   const [assetTag, setAssetTag] = useState(asset?.asset_tag ?? "");
   const [status, setStatus] = useState(asset?.status ?? "available");
   const [assetTypeId, setAssetTypeId] = useState(asset?.asset_type_id ? String(asset.asset_type_id) : "");
@@ -459,6 +460,13 @@ export default function AssetForm({ action, assetTypes, asset, isAssigned }: Pro
             <p className="text-sm text-gray-400">เลือกประเภทเพื่อสร้าง QR Code</p>
           )}
         </section>
+
+        {holderName && (
+          <section className="rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="text-base font-semibold text-[#102E5A] mb-3">ผู้ใช้งาน</h2>
+            <p className="text-center text-[13px] text-gray-800">{holderName}</p>
+          </section>
+        )}
       </aside>
       </div>
 

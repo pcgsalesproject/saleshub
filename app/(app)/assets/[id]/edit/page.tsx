@@ -17,7 +17,7 @@ async function getAsset(id: number): Promise<Asset | null> {
 
 async function getCurrentHolder(assetId: number): Promise<string | null> {
   const rows = await sql<{ employee_name: string }[]>`
-    SELECT TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name
+    SELECT TRIM(CONCAT(e.first_name, ' ', e.last_name)) AS employee_name
     FROM asset_assignments aa
     JOIN employees e ON aa.employee_id = e.id
     WHERE aa.asset_id = ${assetId} AND aa.returned_at IS NULL
@@ -51,7 +51,7 @@ export default async function EditAssetPage(props: PageProps<"/assets/[id]/edit"
         subtitle={`${asset.asset_tag} — ${asset.asset_name}`}
       />
       <div>
-        <AssetForm action={action} assetTypes={assetTypes} asset={asset} isAssigned={holderName !== null} />
+        <AssetForm action={action} assetTypes={assetTypes} asset={asset} holderName={holderName} />
       </div>
     </div>
   );
