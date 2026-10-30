@@ -14,7 +14,7 @@ export default async function NewAssetPage() {
   return (
     <div>
       <Header title="เพิ่มทรัพย์สิน" subtitle="กรอกข้อมูลทรัพย์สินใหม่" />
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div>
         <AssetForm action={createAsset} assetTypes={assetTypes} />
       </div>
     </div>

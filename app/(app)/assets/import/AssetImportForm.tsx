@@ -39,7 +39,7 @@ export default function AssetImportForm() {
           อัปโหลดไฟล์ CSV
         </h2>
         <p className="text-xs text-gray-400 mb-4">
-          คอลัมน์ที่รองรับ: asset_type_id, asset_code, asset_name, brand, model, serial_number, purchase_date, warranty_conditions
+          คอลัมน์ที่รองรับ: asset_type_id, eid, asset_name, brand, model, serial_number, purchase_date, warranty_conditions
           (ไม่ต้องมี asset_tag — ระบบจะสร้างให้อัตโนมัติ)
         </p>
         <div className="flex items-center gap-3">

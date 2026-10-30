@@ -15,7 +15,7 @@ interface AssignedAsset {
   asset_id: number;
   asset_tag: string;
   asset_name: string;
-  asset_code: string | null;
+  eid: string | null;
   serial_number: string | null;
   phone_number: string | null;
   asset_type_name: string | null;
@@ -25,7 +25,7 @@ interface AssignedAsset {
 
 async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
   return sql<AssignedAsset[]>`
-    SELECT aa.id, a.id AS asset_id, a.asset_tag, a.asset_name, a.asset_code, a.serial_number, a.phone_number,
+    SELECT aa.id, a.id AS asset_id, a.asset_tag, a.asset_name, a.eid, a.serial_number, a.phone_number,
            at.name AS asset_type_name, aa.assigned_at, aa.returned_at
     FROM asset_assignments aa
     JOIN assets a ON aa.asset_id = a.id

@@ -68,7 +68,7 @@ CREATE TABLE asset_types (
 CREATE TABLE assets (
     id SERIAL PRIMARY KEY,
     asset_tag VARCHAR NOT NULL UNIQUE,
-    asset_code VARCHAR UNIQUE,
+    eid VARCHAR UNIQUE,
     asset_name VARCHAR NOT NULL,
     asset_type_id INT REFERENCES asset_types(id),
     brand VARCHAR,

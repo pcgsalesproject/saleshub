@@ -129,7 +129,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
             ข้อมูลทรัพย์สิน
           </h2>
           <AssetTagField assetId={asset.id} assetTag={asset.asset_tag} />
-          <Field label="รหัสทรัพย์สิน (บัญชี)" value={asset.asset_code} />
+          <Field label="EID" value={asset.eid} />
           <Field label="ชื่อทรัพย์สิน" value={asset.asset_name} />
           <Field label="ประเภท" value={asset.asset_type_name} />
           <Field label="ยี่ห้อ" value={asset.brand} />
@@ -147,6 +147,16 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-100 rounded-full px-2.5 py-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
                 In Repair
+              </span>
+            ) : asset.status === "damaged" ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-100 rounded-full px-2.5 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                Damaged
+              </span>
+            ) : asset.status === "retired" ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                Retired
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-100 rounded-full px-2.5 py-1">

@@ -450,3 +450,13 @@
     min-width: 760px;
   }
 }
+
+.statusDamaged {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.statusRetired {
+  background: #f3f4f6;
+  color: #6b7280;
+}

@@ -91,7 +91,7 @@ export interface AssetType {
 export interface Asset {
   id: number;
   asset_tag: string;
-  asset_code: string | null;
+  eid: string | null;
   asset_name: string;
   asset_type_id: number | null;
   asset_type_name: string | null;

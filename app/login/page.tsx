@@ -39,7 +39,7 @@ export default function LoginPage() {
               src="/logo.png"
               alt="Saleshub"
               width={200}
-              height={100}
+              height={200}
               className="object-contain"
               priority
               unoptimized

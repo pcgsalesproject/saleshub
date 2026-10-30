@@ -90,7 +90,7 @@ export default async function AssetCheckPage(props: PageProps<"/assets/check/[ta
             ข้อมูลทรัพย์สิน
           </h2>
           <Field label="Asset Tag" value={asset.asset_tag} />
-          <Field label="รหัสทรัพย์สิน (บัญชี)" value={asset.asset_code} />
+          <Field label="EID" value={asset.eid} />
           <Field label="ชื่อทรัพย์สิน" value={asset.asset_name} />
           <Field label="ยี่ห้อ / รุ่น" value={[asset.brand, asset.model].filter(Boolean).join(" ") || null} />
           <Field label="หมายเลขซีเรียล" value={asset.serial_number} />

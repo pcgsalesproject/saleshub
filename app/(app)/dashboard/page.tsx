@@ -10,6 +10,7 @@ interface DashboardStats {
   assets: number;
   assigned_assets: number;
   repair_assets: number;
+  inactive_assets: number;
   expiring_soon: number;
   open_rounds: number;
 }
@@ -33,6 +34,7 @@ async function getDashboardData() {
         (SELECT COUNT(*) FROM assets)::int AS assets,
         (SELECT COUNT(DISTINCT asset_id) FROM asset_assignments WHERE returned_at IS NULL)::int AS assigned_assets,
         (SELECT COUNT(*) FROM assets WHERE status = 'repair')::int AS repair_assets,
+        (SELECT COUNT(*) FROM assets WHERE status IN ('damaged', 'retired'))::int AS inactive_assets,
         (SELECT COUNT(*) FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry >= CURRENT_DATE AND warranty_expiry <= CURRENT_DATE + INTERVAL '30 days')::int AS expiring_soon,
         (SELECT COUNT(*) FROM inspection_rounds WHERE status = 'open')::int AS open_rounds
     `,
@@ -74,7 +76,7 @@ function StatCard({ label, value, sub }: { label: string; value: number; sub: st
 
 export default async function DashboardPage() {
   const { stats, recentAssignments } = await getDashboardData();
-  const availableAssets = Math.max(stats.assets - stats.assigned_assets - stats.repair_assets, 0);
+  const availableAssets = Math.max(stats.assets - stats.assigned_assets - stats.repair_assets - stats.inactive_assets, 0);
 
   return (
     <div>

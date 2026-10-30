@@ -34,7 +34,7 @@ async function getEmployeeDetail(id: number): Promise<EmployeeDetail | null> {
 
 async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
   return sql<AssignedAsset[]>`
-    SELECT a.id, a.asset_tag, a.asset_code, a.asset_name, at.name AS asset_type_name, a.serial_number
+    SELECT a.id, a.asset_tag, a.eid, a.asset_name, at.name AS asset_type_name, a.serial_number
     FROM asset_assignments aa
     JOIN assets a ON aa.asset_id = a.id
     LEFT JOIN asset_types at ON a.asset_type_id = at.id

@@ -28,7 +28,7 @@ function filterConds({ search, type, status }: Filters) {
   const like = `%${search}%`;
   return {
     searchCond: search
-      ? sql`AND (a.asset_tag ILIKE ${like} OR a.asset_code ILIKE ${like} OR a.asset_name ILIKE ${like} OR a.serial_number ILIKE ${like} OR a.phone_number ILIKE ${like})`
+      ? sql`AND (a.asset_tag ILIKE ${like} OR a.eid ILIKE ${like} OR a.asset_name ILIKE ${like} OR a.serial_number ILIKE ${like} OR a.phone_number ILIKE ${like})`
       : sql``,
     typeCond: type ? sql`AND a.asset_type_id = ${Number(type)}` : sql``,
     statusCond: status ? sql`AND base.computed_status = ${status}` : sql``,
@@ -51,6 +51,8 @@ async function getStats(filters: Filters): Promise<AssetStats> {
         CASE
           WHEN cur.employee_id IS NOT NULL THEN 'assigned'
           WHEN a.status = 'repair' THEN 'repair'
+          WHEN a.status = 'damaged' THEN 'damaged'
+          WHEN a.status = 'retired' THEN 'retired'
           ELSE 'available'
         END AS computed_status
       FROM assets a
@@ -86,6 +88,8 @@ async function getExpiringAssets(filters: Filters): Promise<ExpiringAsset[]> {
         CASE
           WHEN cur.employee_id IS NOT NULL THEN 'assigned'
           WHEN a.status = 'repair' THEN 'repair'
+          WHEN a.status = 'damaged' THEN 'damaged'
+          WHEN a.status = 'retired' THEN 'retired'
           ELSE 'available'
         END AS computed_status
       FROM assets a
@@ -148,7 +152,7 @@ function formatDate(v?: string | Date | null) {
 }
 
 interface AssetRow extends Asset {
-  computed_status: "assigned" | "available" | "repair";
+  computed_status: "assigned" | "available" | "repair" | "damaged" | "retired";
 }
 
 async function getAssetTypes(): Promise<AssetType[]> {
@@ -167,6 +171,8 @@ async function getAssets(filters: Filters): Promise<{ rows: AssetRow[]; total: n
         CASE
           WHEN cur.employee_id IS NOT NULL THEN 'assigned'
           WHEN a.status = 'repair' THEN 'repair'
+          WHEN a.status = 'damaged' THEN 'damaged'
+          WHEN a.status = 'retired' THEN 'retired'
           ELSE 'available'
         END AS computed_status
       FROM assets a
@@ -189,6 +195,8 @@ async function getAssets(filters: Filters): Promise<{ rows: AssetRow[]; total: n
         CASE
           WHEN cur.employee_id IS NOT NULL THEN 'assigned'
           WHEN a.status = 'repair' THEN 'repair'
+          WHEN a.status = 'damaged' THEN 'damaged'
+          WHEN a.status = 'retired' THEN 'retired'
           ELSE 'available'
         END AS computed_status
       FROM assets a
@@ -210,6 +218,8 @@ function StatusBadge({ status }: { status: AssetRow["computed_status"] }) {
     assigned: { cls: s.statusAssigned, label: "Assigned" },
     available: { cls: s.statusAvailable, label: "Available" },
     repair: { cls: s.statusRepair, label: "In Repair" },
+    damaged: { cls: s.statusDamaged, label: "Damaged" },
+    retired: { cls: s.statusRetired, label: "Retired" },
   } as const;
   const { cls, label } = map[status];
   return (

@@ -54,7 +54,7 @@ async function getAvailableAssets(): Promise<AssetOption[]> {
       WHERE aa.asset_id = a.id AND aa.returned_at IS NULL
       ORDER BY aa.assigned_at DESC LIMIT 1
     ) cur ON true
-    WHERE cur.employee_id IS NULL AND a.status != 'repair'
+    WHERE cur.employee_id IS NULL AND a.status NOT IN ('repair', 'damaged', 'retired')
     ORDER BY a.asset_tag
   `;
 }

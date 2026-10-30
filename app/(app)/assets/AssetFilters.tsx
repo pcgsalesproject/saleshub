@@ -56,6 +56,8 @@ export default function AssetFilters({ assetTypes, defaultSearch, defaultType, d
           <option value="assigned">Assigned</option>
           <option value="available">Available</option>
           <option value="repair">In Repair</option>
+          <option value="damaged">Damaged</option>
+          <option value="retired">Retired</option>
         </select>
       </div>
 

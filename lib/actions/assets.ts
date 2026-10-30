@@ -53,7 +53,7 @@ function extractFields(formData: FormData) {
 
   return {
     asset_tag:         formData.get("asset_tag") as string,
-    asset_code:      (formData.get("asset_code") as string) || null,
+    eid:      (formData.get("eid") as string) || null,
     asset_name:        formData.get("asset_name") as string,
     asset_type_id:    typeRaw ? Number(typeRaw) : null,
     brand:           (formData.get("brand") as string) || null,
@@ -79,11 +79,11 @@ export async function createAsset(formData: FormData) {
   try {
     await sql`
       INSERT INTO assets
-        (asset_tag, asset_code, asset_name, asset_type_id, brand, model, serial_number, phone_number,
+        (asset_tag, eid, asset_name, asset_type_id, brand, model, serial_number, phone_number,
          purchase_price, po_number, vendor, warranty_conditions,
          purchase_date, warranty_expiry, status, note)
       VALUES (
-        ${f.asset_tag}, ${f.asset_code}, ${f.asset_name}, ${f.asset_type_id}, ${f.brand}, ${f.model}, ${f.serial_number}, ${f.phone_number},
+        ${f.asset_tag}, ${f.eid}, ${f.asset_name}, ${f.asset_type_id}, ${f.brand}, ${f.model}, ${f.serial_number}, ${f.phone_number},
         ${f.purchase_price}, ${f.po_number}, ${f.vendor}, ${f.warranty_conditions},
         ${f.purchase_date}, ${f.warranty_expiry}, ${f.status}, ${f.note}
       )
@@ -572,7 +572,7 @@ export async function returnAssetFromEmployee(
 
 interface ImportRow {
   asset_type_id: number | null;
-  asset_code: string | null;
+  eid: string | null;
   brand: string | null;
   model: string | null;
   serial_number: string | null;
@@ -607,21 +607,21 @@ export async function importAssets(csvText: string): Promise<ImportResult> {
   for (const line of dataLines) {
     const cells = line.split(",");
     const asset_type_id_raw = cleanField(cells[0]);
-    const asset_code = cleanField(cells[1]);
+    const eid = cleanField(cells[1]);
     const brand = cleanField(cells[3]);
     const model = cleanField(cells[4]);
     const serial_number = cleanField(cells[5]);
     const purchase_date = cleanField(cells[6]);
     const warranty_conditions = cleanField(cells[7]);
 
-    if (!asset_type_id_raw && !asset_code && !brand && !model && !serial_number && !purchase_date && !warranty_conditions) {
+    if (!asset_type_id_raw && !eid && !brand && !model && !serial_number && !purchase_date && !warranty_conditions) {
       blankSkipped++;
       continue;
     }
 
     parsed.push({
       asset_type_id: asset_type_id_raw ? Number(asset_type_id_raw) : null,
-      asset_code,
+      eid,
       brand,
       model,
       serial_number,
@@ -665,10 +665,10 @@ export async function importAssets(csvText: string): Promise<ImportResult> {
     try {
       await sql`
         INSERT INTO assets
-          (asset_tag, asset_code, asset_name, asset_type_id, brand, model, serial_number,
+          (asset_tag, eid, asset_name, asset_type_id, brand, model, serial_number,
            purchase_date, warranty_conditions, status, note)
         VALUES (
-          ${assetTag}, ${row.asset_code}, ${assetName}, ${row.asset_type_id}, ${row.brand}, ${row.model}, ${row.serial_number},
+          ${assetTag}, ${row.eid}, ${assetName}, ${row.asset_type_id}, ${row.brand}, ${row.model}, ${row.serial_number},
           ${row.purchase_date}, ${row.warranty_conditions}, 'available', ${note}
         )
       `;
@@ -701,7 +701,7 @@ export async function updateAsset(id: number, formData: FormData) {
     await tx`
       UPDATE assets SET
         asset_tag           = ${f.asset_tag},
-        asset_code          = ${f.asset_code},
+        eid          = ${f.eid},
         asset_name          = ${f.asset_name},
         asset_type_id       = ${f.asset_type_id},
         brand               = ${f.brand},

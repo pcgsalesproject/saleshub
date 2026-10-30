@@ -15,6 +15,17 @@ async function getAsset(id: number): Promise<Asset | null> {
   return rows[0] ?? null;
 }
 
+async function getCurrentHolder(assetId: number): Promise<string | null> {
+  const rows = await sql<{ employee_name: string }[]>`
+    SELECT TRIM(CONCAT(e.prefix_th, ' ', e.first_name, ' ', e.last_name)) AS employee_name
+    FROM asset_assignments aa
+    JOIN employees e ON aa.employee_id = e.id
+    WHERE aa.asset_id = ${assetId} AND aa.returned_at IS NULL
+    ORDER BY aa.assigned_at DESC LIMIT 1
+  `;
+  return rows[0]?.employee_name ?? null;
+}
+
 async function getAssetTypes(): Promise<AssetType[]> {
   return sql<AssetType[]>`SELECT id, code, name FROM asset_types ORDER BY name`;
 }
@@ -23,9 +34,10 @@ export default async function EditAssetPage(props: PageProps<"/assets/[id]/edit"
   const { id } = await props.params;
   const numId = Number(id);
 
-  const [asset, assetTypes] = await Promise.all([
+  const [asset, assetTypes, holderName] = await Promise.all([
     getAsset(numId),
     getAssetTypes(),
+    getCurrentHolder(numId),
   ]);
 
   if (!asset) notFound();
@@ -38,8 +50,8 @@ export default async function EditAssetPage(props: PageProps<"/assets/[id]/edit"
         title="แก้ไขทรัพย์สิน"
         subtitle={`${asset.asset_tag} — ${asset.asset_name}`}
       />
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <AssetForm action={action} assetTypes={assetTypes} asset={asset} />
+      <div>
+        <AssetForm action={action} assetTypes={assetTypes} asset={asset} isAssigned={holderName !== null} />
       </div>
     </div>
   );
