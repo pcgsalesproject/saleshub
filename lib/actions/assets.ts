@@ -732,7 +732,8 @@ async function loadImport(csvText: string): Promise<LoadedImport> {
   const colIndex = new Map<ImportColumn, number>();
   const ignoredColumns: string[] = [];
   header.forEach((h, i) => {
-    const key = h.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    // Excel exports can carry a BOM, non-breaking or zero-width spaces that look like part of the name.
+    const key = h.replace(/[ ​-‍﻿]/g, " ").trim().toLowerCase().replace(/[\s-]+/g, "_");
     if (!key) return;
     const col = (IMPORT_COLUMNS as readonly string[]).includes(key) ? (key as ImportColumn) : HEADER_ALIASES[key];
     if (col && !colIndex.has(col)) colIndex.set(col, i);
@@ -875,15 +876,7 @@ async function loadImport(csvText: string): Promise<LoadedImport> {
 
 export interface ImportPreviewRow {
   line: number;
-  type_name: string | null;
-  asset_tag: string | null;
-  asset_name: string | null;
-  eid: string | null;
-  brand: string | null;
-  model: string | null;
-  serial_number: string | null;
-  purchase_date: string | null;
-  warranty_conditions: string | null;
+  values: Record<string, string | null>; // keyed by CSV column name, ready to display
   duplicateCount: number;
   errors: string[];
   warnings: string[];
@@ -951,15 +944,24 @@ export async function previewAssetImport(csvText: string): Promise<ImportPreview
 
   const preview: ImportPreviewRow[] = loaded.rows.map((row) => ({
     line: row.line,
-    type_name: row.type_name,
-    asset_tag: row.asset_tag,
-    asset_name: row.asset_name,
-    eid: row.eid,
-    brand: row.brand,
-    model: row.model,
-    serial_number: row.serial_number,
-    purchase_date: row.purchase_date,
-    warranty_conditions: row.warranty_conditions,
+    values: {
+      asset_type: row.type_name,
+      asset_tag: row.asset_tag,
+      asset_name: row.asset_name ?? ([row.brand, row.model].filter(Boolean).join(" ") || row.type_name),
+      eid: row.eid,
+      brand: row.brand,
+      model: row.model,
+      serial_number: row.serial_number,
+      phone_number: row.phone_number,
+      purchase_price: row.purchase_price != null ? row.purchase_price.toLocaleString("en-US") : null,
+      po_number: row.po_number,
+      vendor: row.vendor,
+      warranty_conditions: row.warranty_conditions,
+      purchase_date: row.purchase_date,
+      warranty_expiry: row.warranty_expiry,
+      status: row.status,
+      note: row.note,
+    },
     duplicateCount: row.duplicateCount,
     errors: [...row.issues, ...(conflicts.get(row.line) ?? [])],
     warnings: row.warnings,
