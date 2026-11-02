@@ -570,15 +570,54 @@ export async function returnAssetFromEmployee(
   redirect(`/employees/${employeeId}?tab=assignments`);
 }
 
+const IMPORT_COLUMNS = [
+  "asset_tag", "eid", "asset_name", "asset_type", "brand", "model", "serial_number", "phone_number",
+  "purchase_price", "po_number", "vendor", "warranty_conditions", "purchase_date", "warranty_expiry",
+  "status", "note",
+] as const;
+type ImportColumn = (typeof IMPORT_COLUMNS)[number];
+
+// Header names are matched case-insensitively; spaces and dashes count as underscores.
+const HEADER_ALIASES: Record<string, ImportColumn> = {
+  asset_type_id: "asset_type",
+  type: "asset_type",
+  serial: "serial_number",
+  phone: "phone_number",
+  price: "purchase_price",
+  po: "po_number",
+  warranty: "warranty_conditions",
+  remark: "note",
+};
+
+// Files without a recognisable header row use this fixed order (the original template).
+const LEGACY_ORDER: (ImportColumn | null)[] = [
+  "asset_type", "eid", null, "brand", "model", "serial_number", "purchase_date", "warranty_conditions",
+];
+
+const IMPORT_STATUSES = ["available", "repair", "damaged", "retired"];
+
 interface ImportRow {
-  asset_type_id: number | null;
+  line: number;
+  asset_tag: string | null;
   eid: string | null;
+  asset_name: string | null;
+  asset_type_id: number | null;
+  type_name: string | null;
   brand: string | null;
   model: string | null;
   serial_number: string | null;
-  purchase_date: string | null;
+  phone_number: string | null;
+  purchase_price: number | null;
+  po_number: string | null;
+  vendor: string | null;
   warranty_conditions: string | null;
+  purchase_date: string | null;
+  warranty_expiry: string | null;
+  status: string | null;
+  note: string | null;
   duplicateCount: number;
+  issues: string[]; // problems that stop this row from being imported
+  warnings: string[];
 }
 
 export interface ImportResult {
@@ -595,46 +634,220 @@ function cleanField(v: string | undefined): string | null {
   return trimmed;
 }
 
-export async function importAssets(csvText: string): Promise<ImportResult> {
-  await requireRole("admin");
+function parseCsv(text: string): string[][] {
+  const src = text.replace(/^﻿/, "");
+  const firstLine = src.split(/\r?\n/, 1)[0] ?? "";
+  const delimiter = firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
 
-  const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  const dataLines = lines.slice(1); // drop header
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
 
-  const parsed: ImportRow[] = [];
-  let blankSkipped = 0;
+  const endRow = () => {
+    row.push(cell);
+    cell = "";
+    // A completely empty line is not a row; a line like ",,," is (counted as blank later).
+    if (!(row.length === 1 && row[0] === "")) rows.push(row);
+    row = [];
+  };
 
-  for (const line of dataLines) {
-    const cells = line.split(",");
-    const asset_type_id_raw = cleanField(cells[0]);
-    const eid = cleanField(cells[1]);
-    const brand = cleanField(cells[3]);
-    const model = cleanField(cells[4]);
-    const serial_number = cleanField(cells[5]);
-    const purchase_date = cleanField(cells[6]);
-    const warranty_conditions = cleanField(cells[7]);
-
-    if (!asset_type_id_raw && !eid && !brand && !model && !serial_number && !purchase_date && !warranty_conditions) {
-      blankSkipped++;
-      continue;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cell += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === delimiter) {
+      row.push(cell);
+      cell = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && src[i + 1] === "\n") i++;
+      endRow();
+    } else {
+      cell += ch;
     }
+  }
+  if (cell !== "" || row.length > 0) endRow();
+  return rows;
+}
 
-    parsed.push({
-      asset_type_id: asset_type_id_raw ? Number(asset_type_id_raw) : null,
-      eid,
-      brand,
-      model,
-      serial_number,
-      purchase_date,
-      warranty_conditions,
-      duplicateCount: 1,
+// Accepts 2025-01-31 and 31/01/2025 (also Buddhist-era years); returns ISO or null when invalid.
+function normalizeDate(raw: string): string | null {
+  let y: number;
+  let m: number;
+  let d: number;
+  let match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) {
+    y = Number(match[1]);
+    m = Number(match[2]);
+    d = Number(match[3]);
+  } else if ((match = raw.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/))) {
+    d = Number(match[1]);
+    m = Number(match[2]);
+    y = Number(match[3]);
+  } else {
+    return null;
+  }
+  if (y > 2400) y -= 543;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function addWarranty(date: string, conditions: string): string | null {
+  const amount = conditions.match(/\d+/)?.[0];
+  if (!amount) return null;
+  const d = new Date(`${date}T00:00:00Z`);
+  if (conditions.includes("เดือน")) d.setUTCMonth(d.getUTCMonth() + Number(amount));
+  else d.setUTCFullYear(d.getUTCFullYear() + Number(amount));
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+interface LoadedImport {
+  totalRows: number;
+  blankSkipped: number;
+  mergedDuplicates: number;
+  rows: ImportRow[];
+  columns: string[]; // recognised columns, in file order
+  ignoredColumns: string[];
+  legacyFormat: boolean;
+}
+
+async function loadImport(csvText: string): Promise<LoadedImport> {
+  const table = parseCsv(csvText);
+  const header = table[0] ?? [];
+  const dataRows = table.slice(1);
+
+  const colIndex = new Map<ImportColumn, number>();
+  const ignoredColumns: string[] = [];
+  header.forEach((h, i) => {
+    const key = h.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (!key) return;
+    const col = (IMPORT_COLUMNS as readonly string[]).includes(key) ? (key as ImportColumn) : HEADER_ALIASES[key];
+    if (col && !colIndex.has(col)) colIndex.set(col, i);
+    else ignoredColumns.push(h.trim());
+  });
+
+  // Nothing recognised in the first row → treat it as the old fixed-order template.
+  const legacyFormat = colIndex.size === 0;
+  if (legacyFormat) {
+    ignoredColumns.length = 0;
+    LEGACY_ORDER.forEach((col, i) => {
+      if (col) colIndex.set(col, i);
     });
   }
+
+  const assetTypes = await sql<{ id: number; code: string | null; name: string }[]>`SELECT id, code, name FROM asset_types`;
+
+  const rows: ImportRow[] = [];
+  let blankSkipped = 0;
+
+  dataRows.forEach((cells, index) => {
+    const get = (col: ImportColumn) => {
+      const i = colIndex.get(col);
+      return i === undefined ? null : cleanField(cells[i]);
+    };
+
+    const issues: string[] = [];
+    const warnings: string[] = [];
+
+    const typeRaw = get("asset_type");
+    const values = {
+      asset_tag: get("asset_tag"),
+      eid: get("eid"),
+      asset_name: get("asset_name"),
+      brand: get("brand"),
+      model: get("model"),
+      serial_number: get("serial_number"),
+      phone_number: get("phone_number"),
+      po_number: get("po_number"),
+      vendor: get("vendor"),
+      warranty_conditions: get("warranty_conditions"),
+      note: get("note"),
+    };
+    const priceRaw = get("purchase_price");
+    const purchaseRaw = get("purchase_date");
+    const expiryRaw = get("warranty_expiry");
+    const statusRaw = get("status");
+
+    if (!typeRaw && !priceRaw && !purchaseRaw && !expiryRaw && !statusRaw && Object.values(values).every((v) => !v)) {
+      blankSkipped++;
+      return;
+    }
+
+    // Type: numeric id, or the type's code / name
+    let type: { id: number; name: string } | undefined;
+    if (typeRaw) {
+      const lower = typeRaw.toLowerCase();
+      type = /^\d+$/.test(typeRaw)
+        ? assetTypes.find((t) => t.id === Number(typeRaw))
+        : assetTypes.find((t) => t.code?.toLowerCase() === lower || t.name.toLowerCase() === lower);
+      if (!type) issues.push(`ไม่พบประเภท "${typeRaw}"`);
+    } else {
+      warnings.push("ไม่ระบุประเภท");
+    }
+
+    let purchase_price: number | null = null;
+    if (priceRaw) {
+      purchase_price = Number(priceRaw.replace(/,/g, ""));
+      if (Number.isNaN(purchase_price)) {
+        issues.push(`ราคาซื้อไม่ถูกต้อง (${priceRaw})`);
+        purchase_price = null;
+      }
+    }
+
+    let purchase_date: string | null = null;
+    if (purchaseRaw) {
+      purchase_date = normalizeDate(purchaseRaw);
+      if (!purchase_date) issues.push(`วันที่ซื้อไม่ถูกต้อง (${purchaseRaw})`);
+    }
+    let warranty_expiry: string | null = null;
+    if (expiryRaw) {
+      warranty_expiry = normalizeDate(expiryRaw);
+      if (!warranty_expiry) issues.push(`วันที่หมดประกันไม่ถูกต้อง (${expiryRaw})`);
+    } else if (purchase_date && values.warranty_conditions) {
+      warranty_expiry = addWarranty(purchase_date, values.warranty_conditions);
+    }
+
+    let status: string | null = null;
+    if (statusRaw) {
+      status = statusRaw.toLowerCase();
+      if (!IMPORT_STATUSES.includes(status)) {
+        issues.push(`สถานะไม่ถูกต้อง (${statusRaw}) ใช้ได้: ${IMPORT_STATUSES.join(", ")}`);
+        status = null;
+      }
+    }
+
+    rows.push({
+      line: index + 2, // +1 for the header, +1 for 1-based numbering
+      ...values,
+      asset_type_id: type?.id ?? null,
+      type_name: type?.name ?? null,
+      purchase_price,
+      purchase_date,
+      warranty_expiry,
+      status,
+      duplicateCount: 1,
+      issues,
+      warnings,
+    });
+  });
 
   // Merge rows that share the same non-null serial number
   const bySerial = new Map<string, ImportRow>();
   const merged: ImportRow[] = [];
-  for (const row of parsed) {
+  for (const row of rows) {
     if (row.serial_number) {
       const existing = bySerial.get(row.serial_number);
       if (existing) {
@@ -645,44 +858,169 @@ export async function importAssets(csvText: string): Promise<ImportResult> {
     }
     merged.push(row);
   }
-  const mergedDuplicates = parsed.length - merged.length;
+  for (const row of merged) {
+    if (row.duplicateCount > 1) row.warnings.push(`serial ซ้ำในไฟล์ ${row.duplicateCount} แถว (รวมเป็น 1)`);
+  }
 
-  const assetTypes = await sql<{ id: number; code: string; name: string }[]>`SELECT id, code, name FROM asset_types`;
-  const typeById = new Map(assetTypes.map((t) => [t.id, t]));
+  return {
+    totalRows: dataRows.length,
+    blankSkipped,
+    mergedDuplicates: rows.length - merged.length,
+    rows: merged,
+    columns: [...colIndex.keys()],
+    ignoredColumns,
+    legacyFormat,
+  };
+}
+
+export interface ImportPreviewRow {
+  line: number;
+  type_name: string | null;
+  asset_tag: string | null;
+  asset_name: string | null;
+  eid: string | null;
+  brand: string | null;
+  model: string | null;
+  serial_number: string | null;
+  purchase_date: string | null;
+  warranty_conditions: string | null;
+  duplicateCount: number;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface ImportPreview {
+  totalRows: number;
+  blankSkipped: number;
+  mergedDuplicates: number;
+  readyCount: number;
+  errorCount: number;
+  columns: string[];
+  ignoredColumns: string[];
+  legacyFormat: boolean;
+  rows: ImportPreviewRow[]; // capped to PREVIEW_ROW_LIMIT
+  truncated: boolean;
+}
+
+const PREVIEW_ROW_LIMIT = 200;
+
+// Problems that depend on what is already in the database or elsewhere in the file.
+async function findConflicts(rows: ImportRow[]) {
+  const pick = (key: "serial_number" | "eid" | "asset_tag") =>
+    rows.map((r) => r[key]).filter((v): v is string => !!v);
+  const serials = pick("serial_number");
+  const eids = pick("eid");
+  const tags = pick("asset_tag");
+
+  const [dbSerials, dbEids, dbTags] = await Promise.all([
+    serials.length ? sql<{ v: string }[]>`SELECT serial_number AS v FROM assets WHERE serial_number IN ${sql(serials)}` : [],
+    eids.length ? sql<{ v: string }[]>`SELECT eid AS v FROM assets WHERE eid IN ${sql(eids)}` : [],
+    tags.length ? sql<{ v: string }[]>`SELECT asset_tag AS v FROM assets WHERE asset_tag IN ${sql(tags)}` : [],
+  ]);
+  const existing = {
+    serial_number: new Set(dbSerials.map((r) => r.v)),
+    eid: new Set(dbEids.map((r) => r.v)),
+    asset_tag: new Set(dbTags.map((r) => r.v)),
+  };
+
+  const labels = { serial_number: "serial", eid: "EID", asset_tag: "Asset Tag" } as const;
+  const seen = { eid: new Set<string>(), asset_tag: new Set<string>() };
+  const conflicts = new Map<number, string[]>();
+  const add = (line: number, msg: string) => conflicts.set(line, [...(conflicts.get(line) ?? []), msg]);
+
+  for (const row of rows) {
+    for (const key of ["serial_number", "eid", "asset_tag"] as const) {
+      const value = row[key];
+      if (!value) continue;
+      if (existing[key].has(value)) add(row.line, `${labels[key]} ซ้ำกับที่มีในระบบ`);
+      else if (key !== "serial_number") {
+        if (seen[key].has(value)) add(row.line, `${labels[key]} ซ้ำในไฟล์`);
+        seen[key].add(value);
+      }
+    }
+  }
+  return conflicts;
+}
+
+// Dry run of importAssets: same parsing, no writes. Flags what the INSERT would reject.
+export async function previewAssetImport(csvText: string): Promise<ImportPreview> {
+  await requireRole("admin");
+
+  const loaded = await loadImport(csvText);
+  const conflicts = await findConflicts(loaded.rows);
+
+  const preview: ImportPreviewRow[] = loaded.rows.map((row) => ({
+    line: row.line,
+    type_name: row.type_name,
+    asset_tag: row.asset_tag,
+    asset_name: row.asset_name,
+    eid: row.eid,
+    brand: row.brand,
+    model: row.model,
+    serial_number: row.serial_number,
+    purchase_date: row.purchase_date,
+    warranty_conditions: row.warranty_conditions,
+    duplicateCount: row.duplicateCount,
+    errors: [...row.issues, ...(conflicts.get(row.line) ?? [])],
+    warnings: row.warnings,
+  }));
+
+  const errorCount = preview.filter((r) => r.errors.length > 0).length;
+  return {
+    totalRows: loaded.totalRows,
+    blankSkipped: loaded.blankSkipped,
+    mergedDuplicates: loaded.mergedDuplicates,
+    readyCount: preview.length - errorCount,
+    errorCount,
+    columns: loaded.columns,
+    ignoredColumns: loaded.ignoredColumns,
+    legacyFormat: loaded.legacyFormat,
+    rows: preview.slice(0, PREVIEW_ROW_LIMIT),
+    truncated: preview.length > PREVIEW_ROW_LIMIT,
+  };
+}
+
+export async function importAssets(csvText: string): Promise<ImportResult> {
+  await requireRole("admin");
+
+  const { totalRows, blankSkipped, mergedDuplicates, rows } = await loadImport(csvText);
 
   const errors: string[] = [];
   let inserted = 0;
 
-  for (const row of merged) {
-    const type = row.asset_type_id ? typeById.get(row.asset_type_id) : undefined;
-    const assetTag = await generateUniqueAssetTag(row.asset_type_id);
+  for (const row of rows) {
+    if (row.issues.length > 0) {
+      errors.push(`แถว ${row.line}: ${row.issues.join(", ")}`);
+      continue;
+    }
 
-    const assetName = [row.brand, row.model].filter(Boolean).join(" ") || type?.name || "ไม่ระบุชื่อ";
-    const note = row.duplicateCount > 1
-      ? `นำเข้าซ้ำ ${row.duplicateCount} รายการ (serial ซ้ำในไฟล์ต้นฉบับ)`
-      : null;
+    const assetTag = row.asset_tag ?? (await generateUniqueAssetTag(row.asset_type_id));
+    const assetName = row.asset_name ?? ([row.brand, row.model].filter(Boolean).join(" ") || row.type_name || "ไม่ระบุชื่อ");
+    const note = row.note
+      ?? (row.duplicateCount > 1 ? `นำเข้าซ้ำ ${row.duplicateCount} รายการ (serial ซ้ำในไฟล์ต้นฉบับ)` : null);
 
     try {
       await sql`
         INSERT INTO assets
-          (asset_tag, eid, asset_name, asset_type_id, brand, model, serial_number,
-           purchase_date, warranty_conditions, status, note)
+          (asset_tag, eid, asset_name, asset_type_id, brand, model, serial_number, phone_number,
+           purchase_price, po_number, vendor, purchase_date, warranty_conditions, warranty_expiry, status, note)
         VALUES (
-          ${assetTag}, ${row.eid}, ${assetName}, ${row.asset_type_id}, ${row.brand}, ${row.model}, ${row.serial_number},
-          ${row.purchase_date}, ${row.warranty_conditions}, 'available', ${note}
+          ${assetTag}, ${row.eid}, ${assetName}, ${row.asset_type_id}, ${row.brand}, ${row.model}, ${row.serial_number}, ${row.phone_number},
+          ${row.purchase_price}, ${row.po_number}, ${row.vendor}, ${row.purchase_date}, ${row.warranty_conditions}, ${row.warranty_expiry},
+          ${row.status ?? "available"}, ${note}
         )
       `;
       inserted++;
     } catch (error) {
       console.error("Failed to import asset row:", error);
-      errors.push(`แถว serial=${row.serial_number ?? "—"} brand=${row.brand ?? "—"} model=${row.model ?? "—"}: นำเข้าไม่สำเร็จ`);
+      errors.push(`แถว ${row.line} (serial=${row.serial_number ?? "—"}, brand=${row.brand ?? "—"}, model=${row.model ?? "—"}): นำเข้าไม่สำเร็จ — อาจซ้ำกับข้อมูลที่มีอยู่`);
     }
   }
 
   revalidatePath("/assets");
 
   return {
-    totalRows: dataLines.length,
+    totalRows,
     blankSkipped,
     mergedDuplicates,
     inserted,
