@@ -8,6 +8,14 @@ body {
   font-variation-settings: "GRAD" 0;
 }
 
+/* Tailwind v4 resets buttons to the default arrow cursor; restore the pointer on enabled ones. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 /* ─── Brand variables ────────────────────────────────────── */
 :root {
   --brand:       #102E5A;

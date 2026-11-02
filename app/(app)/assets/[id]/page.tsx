@@ -122,7 +122,7 @@ function Field({
         {icon && <Icon name={icon} className="w-[18px] h-[18px] text-gray-400 flex-shrink-0" />}
         {label}
       </span>
-      <span className="text-sm font-semibold text-gray-800 text-right break-all">{value || "—"}</span>
+      <span className="text-sm font-semibold text-gray-800 text-right break-words">{value || "—"}</span>
     </div>
   );
 }
@@ -177,7 +177,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
     .sort((x, y) => new Date(y.at ?? 0).getTime() - new Date(x.at ?? 0).getTime());
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex flex-col gap-4">
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
@@ -210,7 +210,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/assets"
             className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg px-3.5 py-2 bg-white hover:bg-gray-50 transition-colors"
@@ -242,10 +242,10 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
       </div>
 
       {/* Row 1: ข้อมูลทรัพย์สิน + ข้อมูลการจัดซื้อและรับประกัน */}
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="grid gap-4 @4xl:grid-cols-[2fr_1fr]">
+        <div className="@container bg-white border border-gray-200 rounded-xl p-6">
           <CardTitle>ข้อมูลทรัพย์สิน</CardTitle>
-          <div className="grid md:[grid-template-columns:3fr_4fr] md:gap-x-8">
+          <div className="grid @2xl:[grid-template-columns:5fr_4fr] @2xl:gap-x-8">
             <div>
               <Field icon="tag" label="Asset Tag" value={asset.asset_tag} />
               <Field icon="device" label="ชื่อทรัพย์สิน" value={asset.asset_name} />
@@ -253,7 +253,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
               <Field icon="tag" label="ยี่ห้อ (Brand)" value={asset.brand} />
               <Field icon="cube" label="รุ่น (Model)" value={asset.model} />
             </div>
-            <div className="md:border-l md:border-gray-100 md:pl-8">
+            <div className="@2xl:border-l @2xl:border-gray-100 @2xl:pl-8">
               <Field icon="barcode" label="Serial Number" value={asset.serial_number} />
               <Field icon="chip" label="EID" value={asset.eid} />
               <Field icon="phone" label="เบอร์โทรศัพท์ (ถ้ามี)" value={asset.phone_number} />
@@ -313,7 +313,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
 
       {/* ผู้ครอบครองปัจจุบัน */}
       {current && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <div className="@container bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center justify-between gap-4 mb-4">
             <h2 className="flex items-center gap-3 text-base font-semibold text-[#102E5A]">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#102E5A] text-white">
@@ -328,26 +328,26 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
               กำลังใช้งาน
             </span>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 lg:divide-x lg:divide-gray-100">
-            <div className="lg:pr-6">
+          <div className="grid gap-4 grid-cols-2 @3xl:grid-cols-5 @3xl:divide-x @3xl:divide-gray-100">
+            <div className="@3xl:pr-6">
               <p className="text-xs text-gray-400 mb-1">ชื่อ-นามสกุล</p>
               <Link href={`/employees/${current.employee_id}`} className="text-sm font-semibold text-gray-800 hover:text-[#102E5A] hover:underline">
                 {current.employee_name}
               </Link>
             </div>
-            <div className="lg:px-6">
+            <div className="@3xl:px-6">
               <p className="text-xs text-gray-400 mb-1">รหัสพนักงาน</p>
               <p className="text-sm font-semibold text-gray-800">{current.employee_id_str}</p>
             </div>
-            <div className="lg:px-6">
+            <div className="@3xl:px-6">
               <p className="text-xs text-gray-400 mb-1">แผนก</p>
               <p className="text-sm font-semibold text-gray-800">{current.department_name || "—"}</p>
             </div>
-            <div className="lg:px-6">
+            <div className="@3xl:px-6">
               <p className="text-xs text-gray-400 mb-1">ตำแหน่ง</p>
               <p className="text-sm font-semibold text-gray-800">{current.position_name || "—"}</p>
             </div>
-            <div className="lg:pl-6">
+            <div className="@3xl:pl-6">
               <p className="text-xs text-gray-400 mb-1">วันที่รับ</p>
               <p className="text-sm font-semibold text-gray-800">{formatDate(current.assigned_at)}</p>
             </div>
@@ -356,7 +356,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
       )}
 
       {/* ประวัติการใช้งาน */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="@container bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-3 text-base font-semibold text-[#102E5A]">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#102E5A] text-white">
@@ -374,13 +374,14 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
         {events.length === 0 ? (
           <p className="text-sm text-gray-400 py-4">ยังไม่มีประวัติการใช้งาน</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden @3xl:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">วันที่</th>
                   <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ประเภท</th>
-                  <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">รายละเอียด</th>
+                  <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ผู้ใช้งาน</th>
                   <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">หมายเหตุ</th>
                   <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">สถานะ</th>
                   <th className="pb-2" />
@@ -406,7 +407,7 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
                       </td>
                       <td className="py-3 pr-4">
                         <p className="text-gray-800">
-                          {isAssign ? "มอบหมายให้" : "รับคืนจาก"}{" "}
+                          {!isAssign && "รับคืนจาก "}
                           <Link href={`/employees/${h.employee_id}`} className="hover:text-[#102E5A] hover:underline">
                             {h.employee_name}
                           </Link>
@@ -441,6 +442,55 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
               </tbody>
             </table>
           </div>
+
+          {/* Narrow cards (tablet portrait / small windows): one card per event instead of a cramped table */}
+          <ul className="@3xl:hidden divide-y divide-gray-100">
+            {events.map(({ key, kind, at, h }) => {
+              const isAssign = kind === "assign";
+              const active = isAssign && !h.returned_at;
+              const returnAction = returnAsset.bind(null, h.id, asset.id);
+              return (
+                <li key={key} className="py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        {isAssign ? "มอบหมายทรัพย์สิน" : "รับคืนทรัพย์สิน"}
+                      </p>
+                      <p className="text-xs text-gray-400">{formatDate(at)}</p>
+                    </div>
+                    <span
+                      className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                        active ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-green-500" : "bg-gray-400"}`} />
+                      {active ? "Active" : "Closed"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-800">
+                    {!isAssign && "รับคืนจาก "}
+                    <Link href={`/employees/${h.employee_id}`} className="hover:text-[#102E5A] hover:underline">
+                      {h.employee_name}
+                    </Link>
+                  </p>
+                  <p className="text-xs text-gray-400">รหัสพนักงาน {h.employee_id_str}</p>
+                  {isAssign && h.note && <p className="mt-1 text-xs text-gray-500">หมายเหตุ: {h.note}</p>}
+                  {active && (
+                    <div className="mt-2">
+                      <ReturnAssetForm
+                        action={returnAction}
+                        employeeName={h.employee_name}
+                        assetName={asset.asset_name}
+                        assetTypeName={asset.asset_type_name}
+                        serialNumber={asset.serial_number}
+                      />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          </>
         )}
       </div>
 
