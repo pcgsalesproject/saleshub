@@ -76,8 +76,9 @@ export async function createAsset(formData: FormData) {
 
   const f = extractFields(formData);
 
+  let newId: number;
   try {
-    await sql`
+    const [row] = await sql`
       INSERT INTO assets
         (asset_tag, eid, asset_name, asset_type_id, brand, model, serial_number, phone_number,
          purchase_price, po_number, vendor, warranty_conditions,
@@ -87,14 +88,16 @@ export async function createAsset(formData: FormData) {
         ${f.purchase_price}, ${f.po_number}, ${f.vendor}, ${f.warranty_conditions},
         ${f.purchase_date}, ${f.warranty_expiry}, ${f.status}, ${f.note}
       )
+      RETURNING id
     `;
+    newId = row.id;
   } catch (error) {
     console.error("Failed to create asset:", error);
     throw new Error("ไม่สามารถเพิ่มทรัพย์สินได้ อาจมีรหัสทรัพย์สินหรือข้อมูลบางอย่างซ้ำในระบบ");
   }
 
   revalidatePath("/assets");
-  redirect("/assets");
+  redirect(`/assets/${newId}`);
 }
 
 export async function deleteAsset(assetId: number): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -1076,5 +1079,6 @@ export async function updateAsset(id: number, formData: FormData) {
   revalidatePath("/employees");
   revalidatePath("/employees/information");
   revalidatePath("/assets");
-  redirect("/assets");
+  revalidatePath(`/assets/${id}`);
+  redirect(`/assets/${id}`);
 }

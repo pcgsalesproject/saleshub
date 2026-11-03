@@ -328,8 +328,8 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
               กำลังใช้งาน
             </span>
           </div>
-          <div className="grid gap-4 grid-cols-2 @3xl:grid-cols-5 @3xl:divide-x @3xl:divide-gray-100">
-            <div className="@3xl:pr-6">
+          <div className="grid gap-4 grid-cols-2 @3xl:[grid-template-columns:1.5fr_0.8fr_1.2fr_1.2fr_1fr] @3xl:divide-x @3xl:divide-gray-100">
+            <div className="@3xl:pr-5">
               <p className="text-xs text-gray-400 mb-1">ชื่อ-นามสกุล</p>
               <Link href={`/employees/${current.employee_id}`} className="text-sm font-semibold text-gray-800 hover:text-[#102E5A] hover:underline">
                 {current.employee_name}
@@ -467,16 +467,17 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
                       {active ? "Active" : "Closed"}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm text-gray-800">
-                    {!isAssign && "รับคืนจาก "}
-                    <Link href={`/employees/${h.employee_id}`} className="hover:text-[#102E5A] hover:underline">
-                      {h.employee_name}
-                    </Link>
-                  </p>
-                  <p className="text-xs text-gray-400">รหัสพนักงาน {h.employee_id_str}</p>
-                  {isAssign && h.note && <p className="mt-1 text-xs text-gray-500">หมายเหตุ: {h.note}</p>}
-                  {active && (
-                    <div className="mt-2">
+                  <div className="mt-2 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-gray-800">
+                        {!isAssign && "รับคืนจาก "}
+                        <Link href={`/employees/${h.employee_id}`} className="hover:text-[#102E5A] hover:underline">
+                          {h.employee_name}
+                        </Link>
+                      </p>
+                      <p className="text-xs text-gray-400">รหัสพนักงาน {h.employee_id_str}</p>
+                    </div>
+                    {active && (
                       <ReturnAssetForm
                         action={returnAction}
                         employeeName={h.employee_name}
@@ -484,8 +485,9 @@ export default async function AssetDetailPage(props: PageProps<"/assets/[id]">) 
                         assetTypeName={asset.asset_type_name}
                         serialNumber={asset.serial_number}
                       />
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  {isAssign && h.note && <p className="mt-1 text-xs text-gray-500">หมายเหตุ: {h.note}</p>}
                 </li>
               );
             })}

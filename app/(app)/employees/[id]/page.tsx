@@ -35,6 +35,30 @@ async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
   `;
 }
 
+interface ChangeLogRow {
+  id: number;
+  field_label: string;
+  old_value: string | null;
+  new_value: string | null;
+  changed_by: string | null;
+  changed_at: string;
+}
+
+// The log table comes from migration 017; show an empty list until it exists
+async function getChangeLog(employeeId: number): Promise<ChangeLogRow[]> {
+  try {
+    return await sql<ChangeLogRow[]>`
+      SELECT id, field_label, old_value, new_value, changed_by, changed_at
+      FROM employee_change_log
+      WHERE employee_id = ${employeeId}
+      ORDER BY changed_at DESC, id DESC
+      LIMIT 200
+    `;
+  } catch {
+    return [];
+  }
+}
+
 async function getEmployee(id: number): Promise<Employee | null> {
   const rows = await sql<Employee[]>`
     SELECT e.*, d.name AS department_name, p.position AS position_name,
@@ -83,10 +107,11 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
   const { id } = await props.params;
   const { tab = "profile" } = await props.searchParams ?? {};
 
-  const [employee, allAssets, role] = await Promise.all([
+  const [employee, allAssets, role, changeLog] = await Promise.all([
     getEmployee(Number(id)),
     getAssignedAssets(Number(id)),
     getCurrentRole(),
+    tab === "history" ? getChangeLog(Number(id)) : Promise.resolve([] as ChangeLogRow[]),
   ]);
 
   if (!employee) notFound();
@@ -97,6 +122,7 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
   const historyAssets = allAssets.filter((a) => a.returned_at);
 
   const isAssignTab = tab === "assignments";
+  const isHistoryTab = tab === "history";
 
   const fullName = [employee.prefix_th, employee.first_name, employee.last_name].filter(Boolean).join(" ");
   const fullNameEn = [employee.prefix_en, employee.first_name_en, employee.last_name_en].filter(Boolean).join(" ");
@@ -179,11 +205,17 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
         />
 
         <nav className={s.nav}>
-          <Link href={`/employees/${employee.id}`} className={`${s.navItem} ${!isAssignTab ? s.navItemActive : ""}`}>
+          <Link href={`/employees/${employee.id}`} className={`${s.navItem} ${!isAssignTab && !isHistoryTab ? s.navItemActive : ""}`}>
             <svg className={s.navIcon} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
             </svg>
             ข้อมูลส่วนตัว
+          </Link>
+          <Link href={`/employees/${employee.id}?tab=history`} className={`${s.navItem} ${isHistoryTab ? s.navItemActive : ""}`}>
+            <svg className={s.navIcon} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+            </svg>
+            ประวัติการเปลี่ยนแปลง
           </Link>
           <Link href={`/employees/${employee.id}?tab=assignments`} className={`${s.navItem} ${isAssignTab ? s.navItemActive : ""}`}>
             <svg className={s.navIcon} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -198,7 +230,43 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
       {/* ── Main content ── */}
       <main className={s.main}>
 
-        {!isAssignTab ? (<>
+        {isHistoryTab ? (
+          <div className={s.sectionCard}>
+            <div className={s.assetHeader}>
+              <h2 className={s.sectionTitle}><span className={s.titleDot} />ประวัติการเปลี่ยนแปลง</h2>
+              <span className={s.assetCount}>{changeLog.length} รายการ</span>
+            </div>
+            {changeLog.length === 0 ? (
+              <p className={s.assetEmpty}>ยังไม่มีประวัติการเปลี่ยนแปลง</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">วันที่-เวลา</th>
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ข้อมูลที่แก้ไข</th>
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ค่าเดิม</th>
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ค่าใหม่</th>
+                    <th className="text-left text-xs font-medium text-gray-400 pb-2">ผู้แก้ไข</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {changeLog.map((c) => (
+                    <tr key={c.id} className="border-b border-gray-50 last:border-0">
+                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
+                        {formatDate(c.changed_at)}{" "}
+                        {new Date(c.changed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
+                      </td>
+                      <td className="py-3 pr-4 font-medium text-gray-800">{c.field_label}</td>
+                      <td className="py-3 pr-4 text-gray-500">{c.old_value ?? "—"}</td>
+                      <td className="py-3 pr-4 text-gray-800">{c.new_value ?? "—"}</td>
+                      <td className="py-3 text-gray-500">{c.changed_by ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : !isAssignTab ? (<>
           {/* ── Tab: ข้อมูลส่วนตัว ── */}
           <div className={s.twoCol}>
             <div className={`${s.sectionCard} ${s.sectionCardTall}`}>
