@@ -28,7 +28,8 @@ CREATE TABLE positions (
 
 CREATE TABLE sales_areas (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
+    area_code TEXT,
+    area_name TEXT NOT NULL,
     department INT REFERENCES departments(id)
 );
 

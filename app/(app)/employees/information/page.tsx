@@ -27,9 +27,10 @@ async function getEmployees(filters: Filters): Promise<{ rows: Employee[]; total
 
   const deptCond = department ? sql`AND e.department_id = ${Number(department)}` : sql``;
 
-  const statusCond = status === "active" ? sql`AND e.is_active = true`
-    : status === "inactive" ? sql`AND e.is_active = false`
-    : sql``;
+  // Inactive employees are hidden unless explicitly asked for ("inactive" or "all").
+  const statusCond = status === "inactive" ? sql`AND e.is_active = false`
+    : status === "all" ? sql``
+    : sql`AND e.is_active = true`;
 
   const orderBy = sort === "name_desc" ? sql`ORDER BY e.first_name DESC, e.last_name DESC`
     : sort === "newest" ? sql`ORDER BY e.created_at DESC`
@@ -120,7 +121,7 @@ export default async function EmployeeInformationPage(props: PageProps<"/employe
   const {
     search = "",
     department = "",
-    status = "",
+    status = "active",
     sort = "name_asc",
     page: pageParam = "1",
   } = await props.searchParams ?? {};

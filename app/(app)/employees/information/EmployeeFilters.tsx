@@ -62,9 +62,9 @@ export default function EmployeeFilters({
         className={s.filterSelect}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
       >
-        <option value="">ทุกสถานะ</option>
         <option value="active">Active</option>
         <option value="inactive">Inactive</option>
+        <option value="all">ทุกสถานะ</option>
       </select>
       <select
         name="sort"

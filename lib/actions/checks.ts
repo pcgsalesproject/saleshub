@@ -22,6 +22,8 @@ async function resolveOpenRoundId(): Promise<number | null> {
   return rows[0]?.id ?? null;
 }
 
+const CHECK_STATUSES = ["found", "missing", "damaged"];
+
 async function resolveCurrentHolderId(assetId: number): Promise<number | null> {
   const rows = await sql<{ employee_id: number }[]>`
     SELECT employee_id FROM asset_assignments WHERE asset_id = ${assetId} AND returned_at IS NULL LIMIT 1
@@ -36,6 +38,7 @@ export async function createAssetCheck(assetId: number, revalidate: string, form
   const roundId = await resolveOpenRoundId();
   const holderEmployeeId = await resolveCurrentHolderId(assetId);
   const status = (formData.get("status") as string) || "found";
+  if (!CHECK_STATUSES.includes(status)) throw new Error("สถานะการตรวจสอบไม่ถูกต้อง");
   const comment = (formData.get("comment") as string) || null;
 
   await sql`
@@ -65,9 +68,26 @@ export async function createAssetChecksBatch(
 
   if (items.length === 0) return { ok: true };
 
+  if (items.some((i) => !CHECK_STATUSES.includes(i.status))) {
+    return { ok: false, error: "สถานะการตรวจสอบไม่ถูกต้อง" };
+  }
+
   const roundId = await resolveOpenRoundId();
   if (!roundId) {
     return { ok: false, error: "ยังไม่มีรอบการตรวจสอบที่เปิดอยู่ กรุณาสร้างรอบการตรวจสอบก่อนบันทึกผล" };
+  }
+
+  // Every asset must currently be assigned to this (active) employee.
+  const assetIds = [...new Set(items.map((i) => i.assetId))];
+  const [{ count }] = await sql<{ count: number }[]>`
+    SELECT COUNT(DISTINCT aa.asset_id)::int AS count
+    FROM asset_assignments aa
+    JOIN employees e ON e.id = aa.employee_id AND e.is_active = true
+    WHERE aa.employee_id = ${employeeId} AND aa.returned_at IS NULL
+      AND aa.asset_id IN ${sql(assetIds)}
+  `;
+  if (count !== assetIds.length) {
+    return { ok: false, error: "พบทรัพย์สินที่ไม่ได้อยู่ในความดูแลของพนักงานคนนี้ กรุณารีเฟรชหน้าแล้วลองใหม่" };
   }
 
   const checkedById = await resolveCheckerId();

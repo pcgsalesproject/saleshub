@@ -129,7 +129,7 @@ export async function getOrgChartTree(chartKey = "sales-admin"): Promise<OrgChar
       p.position AS position_name,
       d.name AS department_name
     FROM org_chart_nodes n
-    LEFT JOIN employees e ON e.id = n.employee_id
+    LEFT JOIN employees e ON e.id = n.employee_id AND e.is_active = true
     LEFT JOIN positions p ON p.id = e.position_id
     LEFT JOIN departments d ON d.id = e.department_id
     WHERE n.chart_key = ${chartKey}
@@ -203,7 +203,7 @@ export async function getTeamMembers(tag: string, chartKey = "sales-admin"): Pro
       n.responsibilities
     FROM subtree s
     JOIN org_chart_nodes n ON n.id = s.id
-    JOIN employees e ON e.id = n.employee_id
+    JOIN employees e ON e.id = n.employee_id AND e.is_active = true
     LEFT JOIN positions p ON p.id = e.position_id
     LEFT JOIN departments d ON d.id = e.department_id
     ORDER BY e.first_name, e.last_name
