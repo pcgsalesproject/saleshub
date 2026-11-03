@@ -9,6 +9,10 @@ import ReturnAssetForm from "@/components/ReturnAssetForm";
 import EmployeeAvatar from "./EmployeeAvatar";
 import CopyableField from "./CopyableField";
 import KpiCards from "./KpiCards";
+import ChangeHistoryTimeline from "./ChangeHistoryTimeline";
+import { recordEmployeeChange } from "@/lib/actions/employees";
+import { applyDueChanges } from "@/lib/employee-change-server";
+import type { ChangeHistoryRow, ChangeTypeKey, MasterOption } from "@/lib/employee-change-types";
 
 interface AssignedAsset {
   id: number;
@@ -35,28 +39,36 @@ async function getAssignedAssets(employeeId: number): Promise<AssignedAsset[]> {
   `;
 }
 
-interface ChangeLogRow {
-  id: number;
-  field_label: string;
-  old_value: string | null;
-  new_value: string | null;
-  changed_by: string | null;
-  changed_at: string;
-}
-
-// The log table comes from migration 017; show an empty list until it exists
-async function getChangeLog(employeeId: number): Promise<ChangeLogRow[]> {
+// The history table comes from migration 017; show an empty timeline until it exists
+async function getChangeHistory(employeeId: number): Promise<ChangeHistoryRow[]> {
   try {
-    return await sql<ChangeLogRow[]>`
-      SELECT id, field_label, old_value, new_value, changed_by, changed_at
-      FROM employee_change_log
+    const rows = await sql`
+      SELECT id, change_type, old_value, new_value,
+             to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+             reason, status, recorded_by, created_at
+      FROM employee_change_history
       WHERE employee_id = ${employeeId}
-      ORDER BY changed_at DESC, id DESC
-      LIMIT 200
+      ORDER BY effective_date DESC, id DESC
     `;
+    return rows.map((r) => ({ ...r, created_at: new Date(r.created_at).toISOString() })) as unknown as ChangeHistoryRow[];
   } catch {
     return [];
   }
+}
+
+async function getMasterOptions(): Promise<Record<ChangeTypeKey, MasterOption[]>> {
+  const [departments, salesAreas, positions] = await Promise.all([
+    sql<MasterOption[]>`SELECT id, name FROM departments ORDER BY name`,
+    sql<MasterOption[]>`
+      SELECT id, CASE WHEN area_code IS NULL OR area_code = '' THEN area_name ELSE area_code || ' - ' || area_name END AS name
+      FROM sales_areas ORDER BY area_code NULLS LAST, area_name`,
+    sql<MasterOption[]>`SELECT id, position AS name FROM positions ORDER BY position`,
+  ]);
+  return {
+    department_transfer: departments,
+    sales_area_transfer: salesAreas,
+    position_adjustment: positions,
+  };
 }
 
 async function getEmployee(id: number): Promise<Employee | null> {
@@ -107,11 +119,15 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
   const { id } = await props.params;
   const { tab = "profile" } = await props.searchParams ?? {};
 
-  const [employee, allAssets, role, changeLog] = await Promise.all([
+  // Future-dated changes whose date has arrived take effect before the profile is read
+  await applyDueChanges(Number(id));
+
+  const [employee, allAssets, role, changeHistory, masterOptions] = await Promise.all([
     getEmployee(Number(id)),
     getAssignedAssets(Number(id)),
     getCurrentRole(),
-    tab === "history" ? getChangeLog(Number(id)) : Promise.resolve([] as ChangeLogRow[]),
+    tab === "history" ? getChangeHistory(Number(id)) : Promise.resolve([] as ChangeHistoryRow[]),
+    tab === "history" ? getMasterOptions() : Promise.resolve(null),
   ]);
 
   if (!employee) notFound();
@@ -230,42 +246,18 @@ export default async function EmployeeDetailPage(props: PageProps<"/employees/[i
       {/* ── Main content ── */}
       <main className={s.main}>
 
-        {isHistoryTab ? (
-          <div className={s.sectionCard}>
-            <div className={s.assetHeader}>
-              <h2 className={s.sectionTitle}><span className={s.titleDot} />ประวัติการเปลี่ยนแปลง</h2>
-              <span className={s.assetCount}>{changeLog.length} รายการ</span>
-            </div>
-            {changeLog.length === 0 ? (
-              <p className={s.assetEmpty}>ยังไม่มีประวัติการเปลี่ยนแปลง</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">วันที่-เวลา</th>
-                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ข้อมูลที่แก้ไข</th>
-                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ค่าเดิม</th>
-                    <th className="text-left text-xs font-medium text-gray-400 pb-2 pr-4">ค่าใหม่</th>
-                    <th className="text-left text-xs font-medium text-gray-400 pb-2">ผู้แก้ไข</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {changeLog.map((c) => (
-                    <tr key={c.id} className="border-b border-gray-50 last:border-0">
-                      <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
-                        {formatDate(c.changed_at)}{" "}
-                        {new Date(c.changed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
-                      </td>
-                      <td className="py-3 pr-4 font-medium text-gray-800">{c.field_label}</td>
-                      <td className="py-3 pr-4 text-gray-500">{c.old_value ?? "—"}</td>
-                      <td className="py-3 pr-4 text-gray-800">{c.new_value ?? "—"}</td>
-                      <td className="py-3 text-gray-500">{c.changed_by ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+        {isHistoryTab && masterOptions ? (
+          <ChangeHistoryTimeline
+            rows={changeHistory}
+            action={recordEmployeeChange.bind(null, employee.id)}
+            canEdit={role === "admin"}
+            current={{
+              department_transfer: { id: employee.department_id ?? null, name: employee.department_name ?? null },
+              sales_area_transfer: { id: employee.sales_area_id ?? null, name: employee.sales_area_name ?? null },
+              position_adjustment: { id: employee.position_id ?? null, name: employee.position_name ?? null },
+            }}
+            options={masterOptions}
+          />
         ) : !isAssignTab ? (<>
           {/* ── Tab: ข้อมูลส่วนตัว ── */}
           <div className={s.twoCol}>

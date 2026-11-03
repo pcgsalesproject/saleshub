@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/roles";
+import type { FormActionState } from "@/lib/actions/assets";
+import { CHANGE_TYPES } from "@/lib/employee-change-types";
+import { currentUserEmail, lookupName } from "@/lib/employee-change-server";
 
 const PHOTO_BUCKET = "employee-photos";
 
@@ -103,88 +106,14 @@ export async function createEmployee(formData: FormData) {
   redirect("/employees/information");
 }
 
-type Change = { label: string; from: string | null; to: string | null };
-
-const MASKED = "(แก้ไขแล้ว)"; // sensitive values are never written to the log
-
-function norm(v: unknown): string | null {
-  if (v === null || v === undefined || v === "") return null;
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
-  return String(v);
-}
-
-async function diffEmployee(
-  tx: typeof sql,
-  prev: Record<string, unknown>,
-  f: ReturnType<typeof extractFields>
-): Promise<Change[]> {
-  const lookup = async (table: string, col: string, ids: unknown[]) => {
-    const list = ids.filter((x): x is number => typeof x === "number");
-    if (list.length === 0) return new Map<number, string>();
-    const rows = await tx`SELECT id, ${tx(col)} AS name FROM ${tx(table)} WHERE id IN ${tx(list)}`;
-    return new Map<number, string>(rows.map((r) => [r.id as number, r.name as string]));
-  };
-  const [depts, positions, areas, managers] = await Promise.all([
-    lookup("departments", "name", [prev.department_id, f.department_id]),
-    lookup("positions", "position", [prev.position_id, f.position_id]),
-    lookup("sales_areas", "area_name", [prev.sales_area_id, f.sales_area_id]),
-    (async () => {
-      const list = [prev.manager_id, f.manager_id].filter((x): x is number => typeof x === "number");
-      if (list.length === 0) return new Map<number, string>();
-      const rows = await tx`
-        SELECT id, TRIM(CONCAT(first_name, ' ', last_name)) AS name FROM employees WHERE id IN ${tx(list)}
-      `;
-      return new Map<number, string>(rows.map((r) => [r.id as number, r.name as string]));
-    })(),
-  ]);
-  const named = (m: Map<number, string>) => (v: unknown) => (typeof v === "number" ? m.get(v) ?? String(v) : null);
-
-  const fields: { key: keyof typeof f; label: string; show?: (v: unknown) => string | null; mask?: boolean }[] = [
-    { key: "employee_id", label: "รหัสพนักงาน" },
-    { key: "prefix_th", label: "คำนำหน้า (ไทย)" },
-    { key: "first_name", label: "ชื่อ" },
-    { key: "last_name", label: "นามสกุล" },
-    { key: "prefix_en", label: "Prefix (English)" },
-    { key: "first_name_en", label: "First name (English)" },
-    { key: "last_name_en", label: "Last name (English)" },
-    { key: "national_id", label: "เลขบัตรประชาชน", mask: true },
-    { key: "date_of_birth", label: "วันเกิด", mask: true },
-    { key: "gender", label: "เพศ" },
-    { key: "phone", label: "เบอร์โทรศัพท์" },
-    { key: "email", label: "อีเมล" },
-    { key: "start_date", label: "วันที่เริ่มงาน" },
-    { key: "resigned_at", label: "วันที่ลาออก" },
-    { key: "department_id", label: "ฝ่าย", show: named(depts) },
-    { key: "position_id", label: "ตำแหน่ง", show: named(positions) },
-    { key: "sales_area_id", label: "เขตการขาย", show: named(areas) },
-    { key: "manager_id", label: "ผู้บังคับบัญชา", show: named(managers) },
-    { key: "is_active", label: "สถานะ", show: (v) => (v ? "Active" : "Inactive") },
-  ];
-
-  const changes: Change[] = [];
-  for (const { key, label, show, mask } of fields) {
-    const before = prev[key];
-    const after = f[key];
-    if (norm(before) === norm(after)) continue;
-    changes.push({
-      label,
-      from: mask ? (norm(before) ? MASKED : null) : show ? show(before) : norm(before),
-      to: mask ? (norm(after) ? MASKED : null) : show ? show(after) : norm(after),
-    });
-  }
-  return changes;
-}
-
 export async function updateEmployee(id: number, formData: FormData) {
   await requireRole("admin");
 
   const f = extractFields(formData);
-  let changes: Change[] = [];
 
   try {
     await sql.begin(async (tx) => {
-    const [prev] = await tx`SELECT * FROM employees WHERE id = ${id}`;
-    changes = prev ? await diffEmployee(tx as unknown as typeof sql, prev, f) : [];
+    const [prev] = await tx`SELECT phone, department_id, position_id, sales_area_id FROM employees WHERE id = ${id}`;
     await tx`
       UPDATE employees SET
         employee_id   = ${f.employee_id},
@@ -217,27 +146,36 @@ export async function updateEmployee(id: number, formData: FormData) {
           AND id IN (SELECT asset_id FROM asset_assignments WHERE employee_id = ${id} AND returned_at IS NULL)
       `;
     }
+    if (prev) {
+      // Org changes made from the edit form also land in the history timeline
+      const actor = await currentUserEmail();
+      for (const type of CHANGE_TYPES) {
+        const oldId = prev[type.column] ?? null;
+        const newId = f[type.column];
+        if (oldId === newId) continue;
+        try {
+          await tx.savepoint(async (sp) => {
+            const [from, to] = await Promise.all([
+              lookupName(sp, type, oldId),
+              lookupName(sp, type, newId),
+            ]);
+            await sp`
+              INSERT INTO employee_change_history
+                (employee_id, change_type, old_value, new_value, effective_date, reason, status, applied_at, recorded_by)
+              VALUES (${id}, ${type.key}, ${sp.json({ id: oldId, name: from })}, ${sp.json({ id: newId, name: to })},
+                      CURRENT_DATE, NULL, 'applied', NOW(), ${actor})
+            `;
+          });
+        } catch (error) {
+          // history table not migrated yet — never block the profile save
+          console.error("Failed to write employee change history:", error);
+        }
+      }
+    }
     });
   } catch (error) {
     console.error("Failed to update employee:", error);
     throw new Error("ไม่สามารถอัปเดตข้อมูลพนักงานได้ อาจมีรหัสพนักงานหรือข้อมูลบางอย่างซ้ำในระบบ");
-  }
-
-  // Logged outside the update transaction so a missing/failed log table never blocks saving
-  if (changes.length > 0) {
-    try {
-      const supabase = await createClient();
-      const { data } = await supabase.auth.getUser();
-      const actor = data.user?.email ?? null;
-      await sql`
-        INSERT INTO employee_change_log (employee_id, field_label, old_value, new_value, changed_by)
-        SELECT ${id}, c.label, c.from_value, c.to_value, ${actor}
-        FROM json_to_recordset(${JSON.stringify(changes.map((c) => ({ label: c.label, from_value: c.from, to_value: c.to })))}::json)
-          AS c(label text, from_value text, to_value text)
-      `;
-    } catch (error) {
-      console.error("Failed to write employee change log:", error);
-    }
   }
 
   revalidatePath("/employees");
@@ -288,4 +226,82 @@ export async function deleteEmployee(id: number) {
   revalidatePath("/employees");
   revalidatePath("/employees/information");
   redirect("/employees/information");
+}
+
+export async function recordEmployeeChange(
+  employeeId: number,
+  _prev: FormActionState | undefined,
+  formData: FormData
+): Promise<FormActionState> {
+  try {
+    await requireRole("admin");
+  } catch {
+    return { error: "คุณไม่มีสิทธิ์บันทึกประวัติการเปลี่ยนแปลง" };
+  }
+
+  const type = CHANGE_TYPES.find((t) => t.key === formData.get("change_type"));
+  const newId = Number(formData.get("new_id"));
+  const effective = String(formData.get("effective_date") ?? "");
+
+  if (!type) return { error: "กรุณาเลือกประเภทการเปลี่ยนแปลง" };
+  if (!Number.isInteger(newId) || newId <= 0) return { error: `กรุณาเลือก${type.newLabel}` };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(effective) || Number.isNaN(Date.parse(effective))) {
+    return { error: "กรุณาระบุวันที่มีผล" };
+  }
+
+  const actor = await currentUserEmail();
+
+  try {
+    const error = await sql.begin(async (tx) => {
+      const [emp] = await tx`SELECT ${tx(type.column)} AS current_id FROM employees WHERE id = ${employeeId} FOR UPDATE`;
+      if (!emp) return "ไม่พบข้อมูลพนักงาน";
+      const currentId = (emp.current_id as number | null) ?? null;
+
+      const newName = await lookupName(tx, type, newId);
+      if (!newName) return `ไม่พบ${type.newLabel}ในระบบ`;
+      if (newId === currentId) return `${type.newLabel}ต้องแตกต่างจาก${type.oldLabel}`;
+
+      const [dup] = await tx`
+        SELECT 1 FROM employee_change_history
+        WHERE employee_id = ${employeeId} AND change_type = ${type.key}
+          AND effective_date = ${effective} AND (new_value->>'id')::int = ${newId}
+      `;
+      if (dup) return "มีรายการเปลี่ยนแปลงนี้ในวันที่มีผลเดียวกันแล้ว";
+
+      const oldName = await lookupName(tx, type, currentId);
+      const [{ due }] = await tx`SELECT ${effective}::date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date AS due`;
+
+      await tx`
+        INSERT INTO employee_change_history
+          (employee_id, change_type, old_value, new_value, effective_date, reason, status, applied_at, recorded_by)
+        VALUES (
+          ${employeeId}, ${type.key},
+          ${tx.json({ id: currentId, name: oldName })}, ${tx.json({ id: newId, name: newName })},
+          ${effective}, ${null}, ${due ? "applied" : "pending"}, ${due ? tx`NOW()` : null}, ${actor}
+        )
+      `;
+
+      // A backdated entry must not overwrite a newer change that is already in effect
+      if (due) {
+        const [newer] = await tx`
+          SELECT 1 FROM employee_change_history
+          WHERE employee_id = ${employeeId} AND change_type = ${type.key}
+            AND status = 'applied' AND effective_date > ${effective}
+        `;
+        if (!newer) {
+          await tx`UPDATE employees SET ${tx(type.column)} = ${newId}, updated_at = NOW() WHERE id = ${employeeId}`;
+        }
+      }
+      return null;
+    });
+    if (error) return { error };
+  } catch (e) {
+    console.error("Failed to record employee change:", e);
+    return { error: "บันทึกไม่สำเร็จ กรุณาตรวจสอบว่าได้สร้างตารางประวัติในฐานข้อมูลแล้ว" };
+  }
+
+  revalidatePath(`/employees/${employeeId}`);
+  revalidatePath("/employees");
+  revalidatePath("/employees/information");
+  return {};
 }
