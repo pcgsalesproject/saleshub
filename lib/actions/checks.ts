@@ -36,6 +36,9 @@ export async function createAssetCheck(assetId: number, revalidate: string, form
 
   const checkedById = await resolveCheckerId();
   const roundId = await resolveOpenRoundId();
+  if (!roundId) {
+    throw new Error("ยังไม่มีรอบการตรวจสอบที่เปิดอยู่ กรุณาสร้างรอบการตรวจสอบก่อนบันทึกผล");
+  }
   const holderEmployeeId = await resolveCurrentHolderId(assetId);
   const status = (formData.get("status") as string) || "found";
   if (!CHECK_STATUSES.includes(status)) throw new Error("สถานะการตรวจสอบไม่ถูกต้อง");

@@ -3,6 +3,7 @@ import sql from "@/lib/db";
 import type { Department, Employee } from "@/lib/types";
 import Header from "@/components/Header";
 import EmployeeFilters from "./EmployeeFilters";
+import { getCurrentRole } from "@/lib/roles";
 import { clampPage } from "@/lib/pagination";
 import s from "./page.module.css";
 
@@ -134,9 +135,10 @@ export default async function EmployeeInformationPage(props: PageProps<"/employe
     page: Math.max(Number(pageParam) || 1, 1),
   };
 
-  const [{ rows: employees, total, page }, departments] = await Promise.all([
+  const [{ rows: employees, total, page }, departments, role] = await Promise.all([
     getEmployees(filters),
     getDepartments(),
+    getCurrentRole(),
   ]);
 
   return (
@@ -144,14 +146,14 @@ export default async function EmployeeInformationPage(props: PageProps<"/employe
       <Header
         title="พนักงาน"
         subtitle={`${total.toLocaleString()} รายการ`}
-        actions={
+        actions={role === "admin" ? (
           <Link href="/employees/new" className="btn-primary">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             เพิ่มพนักงาน
           </Link>
-        }
+        ) : undefined}
       />
 
       <EmployeeFilters

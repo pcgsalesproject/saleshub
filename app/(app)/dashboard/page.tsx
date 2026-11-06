@@ -1,6 +1,9 @@
 import Link from "next/link";
 import Header from "@/components/Header";
+import { redirect } from "next/navigation";
 import sql from "@/lib/db";
+import { getAllowedMenus, homePathFor } from "@/lib/menu-access";
+import { getCurrentRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +78,18 @@ function StatCard({ label, value, sub }: { label: string; value: number; sub: st
 }
 
 export default async function DashboardPage() {
+  // The dashboard is Admin-only; a Viewer goes to the first menu they can view.
+  const role = await getCurrentRole();
+  if (role !== "admin") {
+    const home = homePathFor(await getAllowedMenus(role));
+    if (home) redirect(home);
+    return (
+      <div className="py-16 text-center text-sm text-gray-500">
+        บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าใช้เมนูใด กรุณาติดต่อผู้ดูแลระบบ
+      </div>
+    );
+  }
+
   const { stats, recentAssignments } = await getDashboardData();
   const availableAssets = Math.max(stats.assets - stats.assigned_assets - stats.repair_assets - stats.inactive_assets, 0);
 

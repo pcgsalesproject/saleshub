@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import sql from "@/lib/db";
+import { getCurrentRole } from "@/lib/roles";
 import type { Department, Position, SalesArea, EmployeeOption } from "@/lib/types";
 import Header from "@/components/Header";
 import EmployeeForm from "../EmployeeForm";
@@ -15,6 +17,7 @@ async function getData(): Promise<{ departments: Department[]; positions: Positi
 }
 
 export default async function NewEmployeePage() {
+  if (await getCurrentRole() !== "admin") redirect("/employees/information");
   const { departments, positions, salesAreas, managers } = await getData();
 
   return (

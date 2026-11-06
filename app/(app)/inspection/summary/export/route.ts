@@ -9,8 +9,9 @@ const BADGE_LABEL = {
 } as const;
 
 function csvEscape(value: string) {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
+  const safeValue = /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
+  if (/[",\n]/.test(safeValue)) return `"${safeValue.replace(/"/g, '""')}"`;
+  return safeValue;
 }
 
 export async function GET(req: NextRequest) {

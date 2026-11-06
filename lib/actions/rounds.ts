@@ -3,6 +3,7 @@
 import sql from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/roles";
+import { requireMenuAccess } from "@/lib/menu-access";
 
 export interface InspectionRound {
   id: number;
@@ -14,10 +15,12 @@ export interface InspectionRound {
 }
 
 export async function listRounds(): Promise<InspectionRound[]> {
+  await requireMenuAccess("inspection");
   return sql<InspectionRound[]>`SELECT * FROM inspection_rounds ORDER BY year DESC`;
 }
 
 export async function getOpenRound(): Promise<InspectionRound | null> {
+  await requireMenuAccess("inspection");
   const rows = await sql<InspectionRound[]>`SELECT * FROM inspection_rounds WHERE status = 'open' LIMIT 1`;
   return rows[0] ?? null;
 }

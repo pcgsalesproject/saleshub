@@ -4,11 +4,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/login/actions";
+import type { MenuKey } from "@/lib/menu-config";
 
 const COLLAPSE_KEY = "sh-sidebar-collapsed";
 
-const navItems = [
+interface NavItem {
+  menuKey: MenuKey;
+  label: string;
+  overviewHref: string;
+  icon: React.ReactNode;
+  children: { label: string; href: string; menuKey?: MenuKey }[];
+}
+
+const navItems: NavItem[] = [
   {
+    menuKey: "sales_admin",
     label: "Sales Admin",
     overviewHref: "/sales-admin",
     icon: (
@@ -24,6 +34,7 @@ const navItems = [
     ],
   },
   {
+    menuKey: "employees",
     label: "Employee",
     overviewHref: "/employees",
     icon: (
@@ -36,6 +47,7 @@ const navItems = [
     ],
   },
   {
+    menuKey: "assets",
     label: "Assets",
     overviewHref: "/assets",
     icon: (
@@ -44,20 +56,23 @@ const navItems = [
       </svg>
     ),
     children: [
-      { label: "Asset List", href: "/assets" },
-      { label: "Asset Assignments", href: "/assignments" },
-      { label: "Asset Records", href: "/asset-history" },
-      { label: "Asset Inspection", href: "/inspection/new" },
-      { label: "Inspection Summary", href: "/inspection/summary" },
+      { label: "Asset List", href: "/assets", menuKey: "assets" },
+      { label: "Asset Assignments", href: "/assignments", menuKey: "assignments" },
+      { label: "Asset Records", href: "/asset-history", menuKey: "asset_history" },
+      { label: "Asset Inspection", href: "/inspection/new", menuKey: "inspection" },
+      { label: "Inspection Summary", href: "/inspection/summary", menuKey: "inspection" },
     ],
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ allowedMenus, isAdmin }: { allowedMenus: MenuKey[]; isAdmin: boolean }) {
   const pathname = usePathname();
+  const visibleItems = navItems.filter((item) =>
+    allowedMenus.includes(item.menuKey) || item.children.some((child) => allowedMenus.includes(child.menuKey ?? item.menuKey))
+  );
   const isChildActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const [openGroup, setOpenGroup] = useState<string | null>(
-    () => navItems.find((item) => item.children.some((c) => isChildActive(c.href)))?.label ?? null
+    () => visibleItems.find((item) => item.children.some((c) => isChildActive(c.href)))?.label ?? null
   );
   const [collapsed, setCollapsed] = useState(false);
 
@@ -114,8 +129,11 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const open = openGroup === item.label;
+          const overviewHref = allowedMenus.includes(item.menuKey)
+            ? item.overviewHref
+            : item.children.find((child) => allowedMenus.includes(child.menuKey ?? item.menuKey))?.href ?? item.overviewHref;
           return (
             <div key={item.label}>
               <div
@@ -125,7 +143,7 @@ export default function Sidebar() {
                 } hover:bg-white/10 hover:text-white`}
               >
                 <Link
-                  href={item.overviewHref}
+                  href={overviewHref}
                   onClick={() => setOpenGroup(item.label)}
                   className={`flex items-center gap-3 flex-1 px-3 py-2.5 ${collapsed ? "justify-center" : ""}`}
                 >
@@ -153,7 +171,7 @@ export default function Sidebar() {
               </div>
               {open && !collapsed && (
                 <div className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-3">
-                  {item.children.map((child) => {
+                  {item.children.filter((child) => allowedMenus.includes(child.menuKey ?? item.menuKey)).map((child) => {
                     const active = isChildActive(child.href);
                     return (
                       <Link
@@ -174,6 +192,20 @@ export default function Sidebar() {
             </div>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/settings"
+            title={collapsed ? "Setting" : undefined}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              isChildActive("/settings") ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+            } ${collapsed ? "justify-center" : ""}`}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zM3.75 6h2.25m4.5 12H3.75m6.75 0a2.25 2.25 0 104.5 0m-4.5 0H6m8.25-6h5.25m-5.25 0a2.25 2.25 0 11-4.5 0m4.5 0h-9" />
+            </svg>
+            {!collapsed && <span>Setting</span>}
+          </Link>
+        )}
       </nav>
 
       <div className="px-4 py-4 border-t border-white/10 space-y-3">

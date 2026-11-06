@@ -12,6 +12,7 @@ const PAGE_SIZE = 10;
 interface AssetStats {
   total: number;
   assigned: number;
+  available: number;
   expiring_soon: number;
 }
 
@@ -41,6 +42,7 @@ async function getStats(filters: Filters): Promise<AssetStats> {
     SELECT
       COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE base.computed_status = 'assigned')::int AS assigned,
+      COUNT(*) FILTER (WHERE base.computed_status = 'available')::int AS available,
       COUNT(*) FILTER (
         WHERE base.warranty_expiry IS NOT NULL
           AND base.warranty_expiry >= CURRENT_DATE
@@ -305,7 +307,7 @@ export default async function AssetsPage(props: PageProps<"/assets">) {
     getAssets(filters),
     getExpiringAssets(filters),
   ]);
-  const available = Math.max(stats.total - stats.assigned, 0);
+  const available = stats.available;
 
   return (
     <div>

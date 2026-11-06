@@ -3,6 +3,7 @@
 import sql from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/roles";
+import { requireMenuAccess } from "@/lib/menu-access";
 import type { OrgChartEmployee, OrgChartNode } from "@/lib/types";
 
 interface NodeRow {
@@ -116,6 +117,7 @@ function buildTree(rows: NodeRow[]): OrgChartNode | null {
 }
 
 export async function getOrgChartTree(chartKey = "sales-admin"): Promise<OrgChartNode | null> {
+  await requireMenuAccess("sales_admin");
   const rows = await sql<NodeRow[]>`
     SELECT
       n.id, n.parent_id, n.position, n.tag, n.is_exec, n.note, n.pair_group,
@@ -152,6 +154,7 @@ interface EmployeeRow {
 }
 
 export async function getAssignableEmployees(): Promise<OrgChartEmployee[]> {
+  await requireMenuAccess("sales_admin");
   const rows = await sql<EmployeeRow[]>`
     SELECT
       e.id,
@@ -177,6 +180,7 @@ interface TeamMemberRow extends EmployeeRow {
 }
 
 export async function getTeamMembers(tag: string, chartKey = "sales-admin"): Promise<OrgChartEmployee[]> {
+  await requireMenuAccess("sales_admin");
   return sql<TeamMemberRow[]>`
     WITH RECURSIVE branch_root AS (
       SELECT id, pair_group FROM org_chart_nodes WHERE chart_key = ${chartKey} AND tag = ${tag}
@@ -211,6 +215,7 @@ export async function getTeamMembers(tag: string, chartKey = "sales-admin"): Pro
 }
 
 export async function getEmployeeProfile(employeeId: number, chartKey = "sales-admin"): Promise<OrgChartEmployee | null> {
+  await requireMenuAccess("sales_admin");
   const rows = await sql<TeamMemberRow[]>`
     SELECT
       e.id,

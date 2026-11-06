@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 import { login } from "./actions";
 
@@ -49,16 +50,16 @@ export default function LoginPage() {
           <form action={action} onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
+                Username
               </label>
               <input
                 ref={emailRef}
-                name="email"
-                type="email"
-                autoComplete="email"
+                name="username"
+                type="text"
+                autoComplete="username"
                 required
                 className="input w-full"
-                placeholder="you@example.com"
+                placeholder="username"
               />
             </div>
 
@@ -94,6 +95,12 @@ export default function LoginPage() {
                 {state.error}
               </p>
             )}
+
+            <div className="text-right">
+              <Link href="/forgot-password" className="text-sm text-[#102E5A] hover:underline">
+                ลืมรหัสผ่าน?
+              </Link>
+            </div>
 
             <div className="flex justify-center">
             <button

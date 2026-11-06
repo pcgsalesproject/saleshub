@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import Header from "@/components/Header";
+import { getCurrentRole } from "@/lib/roles";
 import SubmitButton from "@/components/SubmitButton";
 import sql from "@/lib/db";
 import { bulkUpdateGender } from "@/lib/actions/employees";
@@ -23,6 +25,7 @@ async function getEmployeesMissingGender(): Promise<Row[]> {
 }
 
 export default async function EmployeeGenderPage() {
+  if (await getCurrentRole() !== "admin") redirect("/employees");
   const rows = await getEmployeesMissingGender();
 
   return (

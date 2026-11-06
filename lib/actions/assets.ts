@@ -329,6 +329,8 @@ export interface ReprintDocument {
 }
 
 export async function getDocumentForReprint(docNumber: string): Promise<ReprintDocument> {
+  await requireRole("admin");
+
   const rows = await sql<{
     assigned_at: string;
     employee_id: string;
@@ -427,6 +429,8 @@ export interface ReprintReturnDocument {
 }
 
 export async function getReturnDocumentForReprint(docNumber: string): Promise<ReprintReturnDocument> {
+  await requireRole("admin");
+
   const rows = await sql<{
     returned_at: string;
     employee_id: string;

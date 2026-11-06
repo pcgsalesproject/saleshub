@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS document_number_sequences;
 DROP TABLE IF EXISTS asset_assignments;
 DROP TABLE IF EXISTS assets;
 DROP TABLE IF EXISTS asset_types;
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS user_roles;
 DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS employees;
@@ -114,18 +115,24 @@ CREATE TABLE roles (
     name TEXT UNIQUE NOT NULL CHECK (name IN ('admin', 'viewer'))
 );
 
-CREATE TABLE user_roles (
+CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    role_id INT NOT NULL REFERENCES roles(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    username TEXT NOT NULL,
+    email TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'viewer')),
+    menu_keys TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE UNIQUE INDEX users_username_lower_idx ON users (LOWER(username));
+CREATE UNIQUE INDEX users_email_lower_idx ON users (LOWER(email));
 
 INSERT INTO roles (name) VALUES ('admin'), ('viewer') ON CONFLICT DO NOTHING;
 
--- Bootstrap: assign the first admin manually after seeding, e.g.
--- INSERT INTO user_roles (email, role_id) VALUES ('you@example.com', (SELECT id FROM roles WHERE name = 'admin'));
--- Any authenticated user without a row in user_roles is treated as 'viewer' (read-only).
+-- Bootstrap: add the first admin manually after seeding, e.g.
+-- INSERT INTO users (username, email, role, menu_keys) VALUES ('admin', 'you@example.com', 'admin', ARRAY['sales_admin','employees','assets','assignments','asset_history','inspection']);
+-- Only enabled rows in users can use the app; passwords live in Supabase Auth.
 
 CREATE TABLE document_number_sequences (
     year INT PRIMARY KEY,

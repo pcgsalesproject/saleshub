@@ -9,13 +9,12 @@ export async function getCurrentRole(): Promise<Role> {
   const email = data.user?.email;
   if (!email) return "viewer";
 
-  const rows = await sql<{ name: Role }[]>`
-    SELECT r.name FROM user_roles ur
-    JOIN roles r ON r.id = ur.role_id
-    WHERE lower(ur.email) = lower(${email})
+  const rows = await sql<{ role: Role }[]>`
+    SELECT role FROM users
+    WHERE lower(email) = lower(${email}) AND is_active
     LIMIT 1
   `;
-  return rows[0]?.name ?? "viewer";
+  return rows[0]?.role ?? "viewer";
 }
 
 export async function requireRole(...allowed: Role[]): Promise<Role> {
